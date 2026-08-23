@@ -10,6 +10,7 @@ module ex_stage (
     input  core_types_pkg::xlen_t     wb_forward_data,
     output pipeline_pkg::ex_mem_t     out_packet,
     output pipeline_pkg::redirect_t   redirect,
+    output pipeline_pkg::pred_update_t pred_update,
     output core_types_pkg::xlen_t     forwarded_rs1,
     output core_types_pkg::xlen_t     forwarded_rs2
 );
@@ -99,6 +100,15 @@ module ex_stage (
                      ((in_packet.pred.taken != branch_taken) ||
                       (branch_taken && (in_packet.pred.target != branch_target)));
         redirect = '0;
+        pred_update = '0;
+        if (in_packet.valid && control_op) begin
+            pred_update.valid = 1'b1;
+            pred_update.kind = in_packet.uop.branch_op;
+            pred_update.pc = in_packet.pc;
+            pred_update.taken = branch_taken;
+            pred_update.target = branch_target;
+            pred_update.pred = in_packet.pred;
+        end
         if (in_packet.valid && mispredict) begin
             redirect.valid = 1'b1;
             redirect.pc = branch_taken ? branch_target : in_packet.seq_pc;

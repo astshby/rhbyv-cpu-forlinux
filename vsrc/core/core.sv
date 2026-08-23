@@ -45,6 +45,11 @@ module core (
     redirect_t ex_redirect;
     redirect_t wb_redirect;
     redirect_t selected_redirect;
+    pred_update_t d1_update_raw;
+    pred_update_t ex_update_raw;
+    pred_update_t d1_update;
+    pred_update_t ex_update;
+    pred_update_t predictor_update;
 
     xlen_t rs1_data;
     xlen_t rs2_data;
@@ -69,6 +74,9 @@ module core (
     logic flush_d2_ex;
     logic flush_ex_mem;
     logic fetch_ready;
+    logic d1_stage_advance;
+    logic ex_stage_advance;
+    logic predictor_overflow;
 
     initial begin
         assert ((XLEN == 32) || (XLEN == 64))
@@ -76,13 +84,35 @@ module core (
     end
 
     always_comb begin
-        prediction = '0;
         wb_redirect = '0;
         d1_redirect = d1_redirect_raw;
         if (mem_stall || data_stall)
             d1_redirect.valid = 1'b0;
         fetch_ready = !hold_front;
+        d1_stage_advance = if_d1_q.valid && !hold_d1_d2 && !flush_d1_d2;
+        ex_stage_advance = d2_ex_q.valid && !hold_ex_mem && !flush_ex_mem;
+        d1_update = d1_update_raw;
+        ex_update = ex_update_raw;
+        d1_update.valid = d1_update_raw.valid && d1_stage_advance;
+        ex_update.valid = ex_update_raw.valid && ex_stage_advance;
     end
+
+    predictor u_predictor (
+        .clk,
+        .rst,
+        .lookup_pc(imem_req_addr),
+        .prediction,
+        .update(predictor_update)
+    );
+
+    predictor_update_arbiter u_predictor_update_arbiter (
+        .clk,
+        .rst,
+        .d1_update,
+        .ex_update,
+        .update(predictor_update),
+        .overflow(predictor_overflow)
+    );
 
     if_stage u_if_stage (
         .clk,
@@ -102,7 +132,8 @@ module core (
     d1_stage u_d1_stage (
         .in_packet(if_d1_q),
         .out_packet(d1_packet),
-        .redirect(d1_redirect_raw)
+        .redirect(d1_redirect_raw),
+        .pred_update(d1_update_raw)
     );
 
     regfile u_regfile (
@@ -133,6 +164,7 @@ module core (
         .wb_forward_data(gpr_write_data),
         .out_packet(ex_packet),
         .redirect(ex_redirect),
+        .pred_update(ex_update_raw),
         .forwarded_rs1,
         .forwarded_rs2
     );
@@ -202,6 +234,8 @@ module core (
             ex_mem_q <= '0;
             mem_wb_q <= '0;
         end else begin
+            assert (!predictor_overflow)
+                else $error("predictor update pending buffer overflow");
             mem_wb_q <= mem_packet;
 
             if (flush_ex_mem)

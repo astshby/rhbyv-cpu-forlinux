@@ -2,6 +2,10 @@ vsrc/pkg/core_config_pkg.sv
 vsrc/pkg/riscv_isa_pkg.sv
 vsrc/pkg/core_types_pkg.sv
 vsrc/pkg/pipeline_pkg.sv
+vsrc/core/frontend/btb.sv
+vsrc/core/frontend/gshare.sv
+vsrc/core/frontend/predictor.sv
+vsrc/core/frontend/predictor_update_arbiter.sv
 vsrc/core/frontend/if_stage.sv
 vsrc/core/common/regfile.sv
 vsrc/core/decode/imm_gen.sv

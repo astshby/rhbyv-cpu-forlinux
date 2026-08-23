@@ -3,7 +3,8 @@
 module d1_stage (
     input  pipeline_pkg::if_d1_t  in_packet,
     output pipeline_pkg::d1_d2_t  out_packet,
-    output pipeline_pkg::redirect_t redirect
+    output pipeline_pkg::redirect_t redirect,
+    output pipeline_pkg::pred_update_t pred_update
 );
     import core_types_pkg::*;
     import pipeline_pkg::*;
@@ -45,6 +46,15 @@ module d1_stage (
 
         jal_target = in_packet.pc + imm;
         redirect = '0;
+        pred_update = '0;
+        if (in_packet.valid && (uop.branch_op == BR_JAL)) begin
+            pred_update.valid = 1'b1;
+            pred_update.kind = BR_JAL;
+            pred_update.pc = in_packet.pc;
+            pred_update.taken = 1'b1;
+            pred_update.target = jal_target;
+            pred_update.pred = in_packet.pred;
+        end
         if (in_packet.valid && (uop.branch_op == BR_JAL) &&
             (!in_packet.pred.taken || (in_packet.pred.target != jal_target))) begin
             redirect.valid = 1'b1;
