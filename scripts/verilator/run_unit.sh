@@ -13,6 +13,7 @@ for tb_path in tb/unit/tb_*.sv; do
         -DCORE_XLEN="${xlen}" \
         -Mdir "${out_dir}" \
         -f scripts/rtl_files.f \
+        tb/common/rv_asm_pkg.sv \
         "${tb_path}" \
         --top-module "${test_name}" \
         >"logs/${test_name}-rv${xlen}.log" 2>&1
