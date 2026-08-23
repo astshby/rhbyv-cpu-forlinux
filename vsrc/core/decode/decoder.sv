@@ -227,6 +227,41 @@ module decoder (
                     endcase
                 end
             end
+            OPCODE_SYSTEM: begin
+                if (funct3 == 3'b000) begin
+                    unique case (inst)
+                        32'h0000_0073: begin uop.is_ecall = 1'b1; uop.illegal = 1'b0; end
+                        32'h0010_0073: begin uop.is_ebreak = 1'b1; uop.illegal = 1'b0; end
+                        32'h3020_0073: begin uop.is_mret = 1'b1; uop.illegal = 1'b0; end
+                        default: ;
+                    endcase
+                end else begin
+                    uop.fu = FU_CSR;
+                    uop.csr_valid = 1'b1;
+                    uop.csr_imm = funct3[2];
+                    uop.rs1_used = !funct3[2] && (rs1 != '0);
+                    uop.gpr_write = 1'b1;
+                    uop.wb_sel = WB_CSR;
+                    unique case (funct3)
+                        3'b001, 3'b101: begin
+                            uop.csr_cmd = CSR_RW;
+                            uop.csr_write = 1'b1;
+                            uop.illegal = 1'b0;
+                        end
+                        3'b010, 3'b110: begin
+                            uop.csr_cmd = CSR_RS;
+                            uop.csr_write = (rs1 != '0);
+                            uop.illegal = 1'b0;
+                        end
+                        3'b011, 3'b111: begin
+                            uop.csr_cmd = CSR_RC;
+                            uop.csr_write = (rs1 != '0);
+                            uop.illegal = 1'b0;
+                        end
+                        default: ;
+                    endcase
+                end
+            end
             OPCODE_MISC_MEM: begin
                 if ((funct3 == 3'b000) || (funct3 == 3'b001))
                     uop.illegal = 1'b0;

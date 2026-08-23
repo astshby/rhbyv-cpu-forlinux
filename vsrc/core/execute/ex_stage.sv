@@ -8,6 +8,8 @@ module ex_stage (
     input  logic                       wb_forward_valid,
     input  core_types_pkg::gpr_addr_t wb_forward_addr,
     input  core_types_pkg::xlen_t     wb_forward_data,
+    input  core_types_pkg::xlen_t     csr_old_data,
+    input  logic                       csr_access_illegal,
     output pipeline_pkg::ex_mem_t     out_packet,
     output pipeline_pkg::redirect_t   redirect,
     output pipeline_pkg::pred_update_t pred_update,
@@ -24,6 +26,21 @@ module ex_stage (
     xlen_t branch_target;
     logic control_op;
     logic mispredict;
+    xlen_t csr_operand;
+    xlen_t csr_new_data;
+    exception_t execute_exc;
+
+    function automatic logic address_misaligned(
+        input xlen_t address,
+        input mem_size_e size
+    );
+        unique case (size)
+            MEM_BYTE:  address_misaligned = 1'b0;
+            MEM_HALF:  address_misaligned = address[0];
+            MEM_WORD:  address_misaligned = |address[1:0];
+            default:   address_misaligned = |address[2:0];
+        endcase
+    endfunction
 
     operand_bypass u_rs1_bypass (
         .source_addr(in_packet.rs1),
@@ -59,6 +76,8 @@ module ex_stage (
         endcase
         operand_b = (in_packet.uop.op_b_sel == OP_B_IMM)
                   ? in_packet.imm : forwarded_rs2;
+        csr_operand = in_packet.uop.csr_imm
+                    ? xlen_t'(in_packet.rs1) : forwarded_rs1;
     end
 
     alu u_alu (
@@ -80,6 +99,13 @@ module ex_stage (
         .target(branch_target)
     );
 
+    csr_exec u_csr_exec (
+        .command(in_packet.uop.csr_cmd),
+        .old_value(csr_old_data),
+        .operand(csr_operand),
+        .new_value(csr_new_data)
+    );
+
     always_comb begin
         out_packet = '0;
         out_packet.valid = in_packet.valid;
@@ -90,18 +116,40 @@ module ex_stage (
         out_packet.result = alu_result;
         out_packet.store_data = forwarded_rs2;
         out_packet.csr_addr = in_packet.csr_addr;
+        out_packet.csr_old = csr_old_data;
+        out_packet.csr_new = csr_new_data;
         out_packet.uop = in_packet.uop;
         out_packet.pred = in_packet.pred;
-        out_packet.exc = in_packet.exc;
+        execute_exc = in_packet.exc;
 
         control_op = (in_packet.uop.branch_op != BR_NONE) &&
                      (in_packet.uop.branch_op != BR_JAL);
         mispredict = control_op &&
                      ((in_packet.pred.taken != branch_taken) ||
                       (branch_taken && (in_packet.pred.target != branch_target)));
+        if (in_packet.valid && !execute_exc.valid) begin
+            if (in_packet.uop.csr_valid && csr_access_illegal) begin
+                execute_exc.valid = 1'b1;
+                execute_exc.cause = EXC_ILLEGAL_INST;
+                execute_exc.tval = xlen_t'(in_packet.inst);
+            end else if ((in_packet.uop.mem_read || in_packet.uop.mem_write) &&
+                         address_misaligned(alu_result, in_packet.uop.mem_size)) begin
+                execute_exc.valid = 1'b1;
+                execute_exc.cause = in_packet.uop.mem_read
+                                  ? EXC_LOAD_ADDR_MISALIGNED : EXC_STORE_ADDR_MISALIGNED;
+                execute_exc.tval = alu_result;
+            end else if (control_op && branch_taken && (branch_target[1:0] != 2'b00)) begin
+                execute_exc.valid = 1'b1;
+                execute_exc.cause = EXC_INST_ADDR_MISALIGNED;
+                execute_exc.tval = branch_target;
+            end
+        end
+        out_packet.exc = execute_exc;
+        out_packet.csr_we = in_packet.valid && in_packet.uop.csr_valid &&
+                            in_packet.uop.csr_write && !execute_exc.valid;
         redirect = '0;
         pred_update = '0;
-        if (in_packet.valid && control_op) begin
+        if (in_packet.valid && control_op && !execute_exc.valid) begin
             pred_update.valid = 1'b1;
             pred_update.kind = in_packet.uop.branch_op;
             pred_update.pc = in_packet.pc;
@@ -109,7 +157,7 @@ module ex_stage (
             pred_update.target = branch_target;
             pred_update.pred = in_packet.pred;
         end
-        if (in_packet.valid && mispredict) begin
+        if (in_packet.valid && mispredict && !execute_exc.valid) begin
             redirect.valid = 1'b1;
             redirect.pc = branch_taken ? branch_target : in_packet.seq_pc;
             redirect.reason = REDIR_EX_BRANCH;

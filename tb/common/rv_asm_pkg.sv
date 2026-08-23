@@ -56,6 +56,15 @@ package rv_asm_pkg;
         enc_j = {imm[20], imm[10:1], imm[11], imm[19:12], rd, 7'b1101111};
     endfunction
 
+    function automatic logic [31:0] enc_csr(
+        input logic [11:0] csr,
+        input logic [4:0] source,
+        input logic [2:0] funct3,
+        input logic [4:0] rd
+    );
+        enc_csr = {csr, source, funct3, rd, 7'b1110011};
+    endfunction
+
     function automatic logic [31:0] nop();
         nop = enc_i(0, 5'd0, 3'b000, 5'd0, 7'b0010011);
     endfunction

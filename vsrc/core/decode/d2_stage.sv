@@ -6,6 +6,8 @@ module d2_stage (
     input  core_types_pkg::xlen_t rs2_data,
     output pipeline_pkg::d2_ex_t  out_packet
 );
+    import core_types_pkg::*;
+
     always_comb begin
         out_packet = '0;
         out_packet.valid = in_packet.valid;
@@ -15,7 +17,7 @@ module d2_stage (
         out_packet.rs1 = in_packet.rs1;
         out_packet.rs2 = in_packet.rs2;
         out_packet.rd = in_packet.rd;
-        out_packet.rs1_data = rs1_data;
+        out_packet.rs1_data = in_packet.uop.csr_imm ? xlen_t'(in_packet.rs1) : rs1_data;
         out_packet.rs2_data = rs2_data;
         out_packet.imm = in_packet.imm;
         out_packet.csr_addr = in_packet.csr_addr;

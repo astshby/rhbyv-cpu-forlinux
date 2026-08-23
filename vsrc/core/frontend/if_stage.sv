@@ -5,6 +5,7 @@ module if_stage (
     input  logic                              rst,
     input  logic                              fetch_enable,
     input  logic                              out_ready,
+    input  logic                              flush,
     input  pipeline_pkg::redirect_t          redirect,
     input  pipeline_pkg::pred_info_t         prediction,
     output pipeline_pkg::if_d1_t             out_packet,
@@ -51,6 +52,14 @@ module if_stage (
             buffer_q.valid <= 1'b0;
         end else if (redirect.valid) begin
             pc_q <= redirect.pc;
+            buffer_q.valid <= 1'b0;
+            if (request_q.valid && !imem_rsp_valid) begin
+                request_killed_q <= 1'b1;
+            end else begin
+                request_q.valid <= 1'b0;
+                request_killed_q <= 1'b0;
+            end
+        end else if (flush) begin
             buffer_q.valid <= 1'b0;
             if (request_q.valid && !imem_rsp_valid) begin
                 request_killed_q <= 1'b1;

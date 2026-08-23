@@ -45,16 +45,16 @@ module mem_stage (
     always_comb begin
         dmem_req_valid = in_packet.valid &&
                          (in_packet.uop.mem_read || in_packet.uop.mem_write) &&
-                         !load_pending_q;
+                         !in_packet.exc.valid && !load_pending_q;
         dmem_req_write = in_packet.uop.mem_write;
         dmem_req_addr = in_packet.result;
         dmem_req_wdata = store_wdata;
         dmem_req_wstrb = store_wstrb;
 
         transaction_complete = 1'b1;
-        if (in_packet.valid && in_packet.uop.mem_write)
+        if (in_packet.valid && !in_packet.exc.valid && in_packet.uop.mem_write)
             transaction_complete = dmem_req_valid && dmem_req_ready;
-        else if (in_packet.valid && in_packet.uop.mem_read)
+        else if (in_packet.valid && !in_packet.exc.valid && in_packet.uop.mem_read)
             transaction_complete = load_pending_q && dmem_rsp_valid;
 
         stall = in_packet.valid && !transaction_complete;
@@ -87,12 +87,12 @@ module mem_stage (
         if (rst) begin
             load_pending_q <= 1'b0;
         end else begin
-            if (in_packet.valid && in_packet.uop.mem_read &&
+            if (in_packet.valid && !in_packet.exc.valid && in_packet.uop.mem_read &&
                 !load_pending_q && dmem_req_valid && dmem_req_ready)
                 load_pending_q <= 1'b1;
             if (load_pending_q && dmem_rsp_valid)
                 load_pending_q <= 1'b0;
-            if (!in_packet.valid || !in_packet.uop.mem_read)
+            if (!in_packet.valid || in_packet.exc.valid || !in_packet.uop.mem_read)
                 load_pending_q <= 1'b0;
         end
     end

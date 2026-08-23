@@ -2,6 +2,10 @@ vsrc/pkg/core_config_pkg.sv
 vsrc/pkg/riscv_isa_pkg.sv
 vsrc/pkg/core_types_pkg.sv
 vsrc/pkg/pipeline_pkg.sv
+vsrc/core/csr/csr_exec.sv
+vsrc/core/csr/csr_access_check.sv
+vsrc/core/csr/csr_file.sv
+vsrc/core/csr/trap_controller.sv
 vsrc/core/frontend/btb.sv
 vsrc/core/frontend/gshare.sv
 vsrc/core/frontend/predictor.sv

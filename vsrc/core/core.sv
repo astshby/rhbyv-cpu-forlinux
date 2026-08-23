@@ -77,6 +77,25 @@ module core (
     logic d1_stage_advance;
     logic ex_stage_advance;
     logic predictor_overflow;
+    logic d1_serialize;
+    logic ex_serialize;
+    logic serial_pending_q;
+    logic fetch_enable;
+
+    xlen_t csr_committed_data;
+    xlen_t csr_old_data;
+    xlen_t mtvec;
+    xlen_t mepc;
+    logic csr_implemented;
+    logic csr_read_only;
+    logic csr_access_illegal;
+    logic csr_write_valid;
+    logic trap_enter;
+    logic mret_commit;
+    xlen_t trap_pc;
+    exc_cause_e trap_cause;
+    xlen_t trap_tval;
+    logic retire_valid;
 
     initial begin
         assert ((XLEN == 32) || (XLEN == 64))
@@ -84,17 +103,32 @@ module core (
     end
 
     always_comb begin
-        wb_redirect = '0;
+        ex_serialize = d2_ex_q.valid && ex_packet.exc.valid;
+        d1_stage_advance = if_d1_q.valid && !mem_stall && !data_stall &&
+                           !ex_redirect.valid && !ex_serialize && !wb_redirect.valid;
+        d1_serialize = d1_stage_advance &&
+                       (d1_packet.exc.valid || d1_packet.uop.is_mret);
         d1_redirect = d1_redirect_raw;
-        if (mem_stall || data_stall)
+        if (!d1_stage_advance)
             d1_redirect.valid = 1'b0;
         fetch_ready = !hold_front;
-        d1_stage_advance = if_d1_q.valid && !hold_d1_d2 && !flush_d1_d2;
-        ex_stage_advance = d2_ex_q.valid && !hold_ex_mem && !flush_ex_mem;
+        fetch_enable = !serial_pending_q && !d1_serialize && !ex_serialize;
+        ex_stage_advance = d2_ex_q.valid && !mem_stall && !wb_redirect.valid;
         d1_update = d1_update_raw;
         ex_update = ex_update_raw;
         d1_update.valid = d1_update_raw.valid && d1_stage_advance;
-        ex_update.valid = ex_update_raw.valid && ex_stage_advance;
+        ex_update.valid = ex_update_raw.valid && ex_stage_advance && !ex_packet.exc.valid;
+
+        csr_old_data = csr_committed_data;
+        if (mem_wb_q.valid && mem_wb_q.csr_we && !mem_wb_q.exc.valid &&
+            (mem_wb_q.csr_addr == d2_ex_q.csr_addr))
+            csr_old_data = mem_wb_q.csr_new;
+        if (ex_mem_q.valid && ex_mem_q.csr_we && !ex_mem_q.exc.valid &&
+            (ex_mem_q.csr_addr == d2_ex_q.csr_addr))
+            csr_old_data = ex_mem_q.csr_new;
+
+        csr_write_valid = mem_wb_q.valid && mem_wb_q.csr_we &&
+                          !mem_wb_q.exc.valid;
     end
 
     predictor u_predictor (
@@ -117,8 +151,9 @@ module core (
     if_stage u_if_stage (
         .clk,
         .rst,
-        .fetch_enable(1'b1),
+        .fetch_enable,
         .out_ready(fetch_ready),
+        .flush(d1_serialize || ex_serialize),
         .redirect(selected_redirect),
         .prediction,
         .out_packet(fetch_packet),
@@ -162,11 +197,21 @@ module core (
         .wb_forward_valid(gpr_write_enable),
         .wb_forward_addr(gpr_write_addr),
         .wb_forward_data(gpr_write_data),
+        .csr_old_data,
+        .csr_access_illegal,
         .out_packet(ex_packet),
         .redirect(ex_redirect),
         .pred_update(ex_update_raw),
         .forwarded_rs1,
         .forwarded_rs2
+    );
+
+    csr_access_check u_csr_access_check (
+        .address(d2_ex_q.csr_addr),
+        .write_intent(d2_ex_q.uop.csr_write),
+        .implemented(csr_implemented),
+        .read_only(csr_read_only),
+        .illegal(csr_access_illegal)
     );
 
     mem_stage u_mem_stage (
@@ -202,6 +247,37 @@ module core (
         .commit_exception
     );
 
+    trap_controller u_trap_controller (
+        .commit_packet(mem_wb_q),
+        .mtvec,
+        .mepc,
+        .trap_enter,
+        .mret_commit,
+        .trap_pc,
+        .trap_cause,
+        .trap_tval,
+        .retire_valid,
+        .redirect(wb_redirect)
+    );
+
+    csr_file u_csr_file (
+        .clk,
+        .rst,
+        .read_addr(d2_ex_q.csr_addr),
+        .read_data(csr_committed_data),
+        .write_valid(csr_write_valid),
+        .write_addr(mem_wb_q.csr_addr),
+        .write_data(mem_wb_q.csr_new),
+        .retire_valid,
+        .trap_enter,
+        .trap_pc,
+        .trap_cause,
+        .trap_tval,
+        .mret_commit,
+        .mtvec,
+        .mepc
+    );
+
     hazard_unit u_hazard_unit (
         .producer(d2_ex_q),
         .consumer(d1_d2_q),
@@ -212,6 +288,8 @@ module core (
         .wb_redirect,
         .ex_redirect,
         .d1_redirect,
+        .ex_serialize,
+        .d1_serialize,
         .mem_stall,
         .data_stall,
         .redirect(selected_redirect),
@@ -233,10 +311,18 @@ module core (
             d2_ex_q <= '0;
             ex_mem_q <= '0;
             mem_wb_q <= '0;
+            serial_pending_q <= 1'b0;
         end else begin
             assert (!predictor_overflow)
                 else $error("predictor update pending buffer overflow");
-            mem_wb_q <= mem_packet;
+            if (wb_redirect.valid) begin
+                mem_wb_q.valid <= 1'b0;
+                serial_pending_q <= 1'b0;
+            end else begin
+                mem_wb_q <= mem_packet;
+                if (d1_serialize || ex_serialize)
+                    serial_pending_q <= 1'b1;
+            end
 
             if (flush_ex_mem)
                 ex_mem_q.valid <= 1'b0;
@@ -263,6 +349,6 @@ module core (
         end
     end
 
-    logic unused_forwarded;
-    assign unused_forwarded = ^{forwarded_rs1, forwarded_rs2};
+    logic unused_debug;
+    assign unused_debug = ^{forwarded_rs1, forwarded_rs2, csr_implemented, csr_read_only};
 endmodule

@@ -16,6 +16,7 @@ module d1_stage (
     csr_addr_t csr_addr;
     xlen_t imm;
     xlen_t jal_target;
+    exception_t decoded_exc;
 
     decoder u_decoder (
         .inst(in_packet.inst),
@@ -45,9 +46,32 @@ module d1_stage (
         out_packet.pred = in_packet.pred;
 
         jal_target = in_packet.pc + imm;
+        decoded_exc = '0;
+        if (in_packet.valid) begin
+            if (in_packet.pc[1:0] != 2'b00) begin
+                decoded_exc.valid = 1'b1;
+                decoded_exc.cause = EXC_INST_ADDR_MISALIGNED;
+                decoded_exc.tval = in_packet.pc;
+            end else if (uop.illegal) begin
+                decoded_exc.valid = 1'b1;
+                decoded_exc.cause = EXC_ILLEGAL_INST;
+                decoded_exc.tval = xlen_t'(in_packet.inst);
+            end else if (uop.is_ecall) begin
+                decoded_exc.valid = 1'b1;
+                decoded_exc.cause = EXC_ECALL_M;
+            end else if (uop.is_ebreak) begin
+                decoded_exc.valid = 1'b1;
+                decoded_exc.cause = EXC_BREAKPOINT;
+            end else if ((uop.branch_op == BR_JAL) && (jal_target[1:0] != 2'b00)) begin
+                decoded_exc.valid = 1'b1;
+                decoded_exc.cause = EXC_INST_ADDR_MISALIGNED;
+                decoded_exc.tval = jal_target;
+            end
+        end
+        out_packet.exc = decoded_exc;
         redirect = '0;
         pred_update = '0;
-        if (in_packet.valid && (uop.branch_op == BR_JAL)) begin
+        if (in_packet.valid && !decoded_exc.valid && (uop.branch_op == BR_JAL)) begin
             pred_update.valid = 1'b1;
             pred_update.kind = BR_JAL;
             pred_update.pc = in_packet.pc;
@@ -55,7 +79,7 @@ module d1_stage (
             pred_update.target = jal_target;
             pred_update.pred = in_packet.pred;
         end
-        if (in_packet.valid && (uop.branch_op == BR_JAL) &&
+        if (in_packet.valid && !decoded_exc.valid && (uop.branch_op == BR_JAL) &&
             (!in_packet.pred.taken || (in_packet.pred.target != jal_target))) begin
             redirect.valid = 1'b1;
             redirect.pc = jal_target;

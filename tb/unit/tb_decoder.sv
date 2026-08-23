@@ -35,6 +35,25 @@ module tb_decoder;
             assert (!uop.illegal && uop.op_width == OP_WIDTH_WORD) else $fatal(1, "ADDW decode");
         else
             assert (uop.illegal) else $fatal(1, "ADDW must be illegal in RV32");
+        inst = 32'h0000_0073; #1;
+        assert (!uop.illegal && uop.is_ecall) else $fatal(1, "ECALL decode");
+        inst = 32'h0010_0073; #1;
+        assert (!uop.illegal && uop.is_ebreak) else $fatal(1, "EBREAK decode");
+        inst = 32'h3020_0073; #1;
+        assert (!uop.illegal && uop.is_mret) else $fatal(1, "MRET decode");
+        inst = enc_csr(12'h340, 5'd2, 3'b001, 5'd1); #1;
+        assert (!uop.illegal && uop.csr_valid && uop.csr_write &&
+                uop.csr_cmd == CSR_RW && uop.rs1_used && csr_addr == 12'h340)
+            else $fatal(1, "CSRRW decode");
+        inst = enc_csr(12'h340, 5'd0, 3'b010, 5'd1); #1;
+        assert (!uop.illegal && uop.csr_valid && !uop.csr_write && !uop.rs1_used)
+            else $fatal(1, "CSRRS read-only form");
+        inst = enc_csr(12'h340, 5'd3, 3'b111, 5'd1); #1;
+        assert (!uop.illegal && uop.csr_valid && uop.csr_imm &&
+                uop.csr_write && uop.csr_cmd == CSR_RC)
+            else $fatal(1, "CSRRCI decode");
+        inst = 32'h0020_0073; #1;
+        assert (uop.illegal) else $fatal(1, "reserved SYSTEM decode");
         $display("PASS tb_decoder");
         $finish;
     end

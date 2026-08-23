@@ -4,6 +4,8 @@ module pipeline_ctrl (
     input  pipeline_pkg::redirect_t wb_redirect,
     input  pipeline_pkg::redirect_t ex_redirect,
     input  pipeline_pkg::redirect_t d1_redirect,
+    input  logic                    ex_serialize,
+    input  logic                    d1_serialize,
     input  logic                    mem_stall,
     input  logic                    data_stall,
     output pipeline_pkg::redirect_t redirect,
@@ -41,8 +43,14 @@ module pipeline_ctrl (
                 flush_if_d1 = 1'b1;
                 flush_d1_d2 = 1'b1;
                 flush_d2_ex = 1'b1;
+            end else if (ex_serialize) begin
+                flush_if_d1 = 1'b1;
+                flush_d1_d2 = 1'b1;
+                flush_d2_ex = 1'b1;
             end else if (d1_redirect.valid) begin
                 redirect = d1_redirect;
+                flush_if_d1 = 1'b1;
+            end else if (d1_serialize) begin
                 flush_if_d1 = 1'b1;
             end
 

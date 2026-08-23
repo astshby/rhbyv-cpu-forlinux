@@ -1,0 +1,24 @@
+// Module: csr_access_check
+// Description: Validates implemented M-mode CSR addresses and write permission.
+module csr_access_check (
+    input  core_types_pkg::csr_addr_t address,
+    input  logic                      write_intent,
+    output logic                      implemented,
+    output logic                      read_only,
+    output logic                      illegal
+);
+    import riscv_isa_pkg::*;
+
+    always_comb begin
+        unique case (address)
+            CSR_MSTATUS, CSR_MISA, CSR_MTVEC, CSR_MSCRATCH, CSR_MEPC,
+            CSR_MCAUSE, CSR_MTVAL, CSR_MCYCLE, CSR_MINSTRET, CSR_MHARTID:
+                implemented = 1'b1;
+            default:
+                implemented = 1'b0;
+        endcase
+        read_only = (address == CSR_MISA) || (address == CSR_MHARTID) ||
+                    (address[11:10] == 2'b11);
+        illegal = !implemented || (write_intent && read_only);
+    end
+endmodule
