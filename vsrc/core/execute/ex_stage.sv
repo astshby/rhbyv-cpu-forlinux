@@ -27,6 +27,7 @@ module ex_stage (
     logic control_op;
     logic mispredict;
     xlen_t csr_operand;
+    xlen_t csr_proposed_data;
     xlen_t csr_new_data;
     exception_t execute_exc;
 
@@ -103,7 +104,13 @@ module ex_stage (
         .command(in_packet.uop.csr_cmd),
         .old_value(csr_old_data),
         .operand(csr_operand),
-        .new_value(csr_new_data)
+        .new_value(csr_proposed_data)
+    );
+
+    csr_warl u_csr_warl (
+        .address(in_packet.csr_addr),
+        .proposed_value(csr_proposed_data),
+        .legal_value(csr_new_data)
     );
 
     always_comb begin

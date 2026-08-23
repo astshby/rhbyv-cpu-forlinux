@@ -22,6 +22,8 @@ module tb_csr_access_check;
         assert (!illegal) else $fatal(1, "MISA read");
         address = CSR_MHARTID; #1;
         assert (implemented && read_only && !illegal) else $fatal(1, "MHARTID read");
+        address = CSR_MVENDORID; #1;
+        assert (implemented && read_only && !illegal) else $fatal(1, "MVENDORID read");
         address = 12'h7c0; #1;
         assert (!implemented && illegal) else $fatal(1, "unimplemented CSR");
         $display("PASS tb_csr_access_check");

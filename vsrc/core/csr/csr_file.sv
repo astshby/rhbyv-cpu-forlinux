@@ -29,6 +29,7 @@ module csr_file (
     xlen_t mtval_q;
     xlen_t mcycle_q;
     xlen_t minstret_q;
+    xlen_t legal_write_data;
 
     function automatic xlen_t misa_value();
         xlen_t value;
@@ -38,17 +39,14 @@ module csr_file (
         return value;
     endfunction
 
-    function automatic xlen_t make_mstatus(input logic mie, input logic mpie);
-        xlen_t sanitized;
-        sanitized = '0;
-        sanitized[3] = mie;
-        sanitized[7] = mpie;
-        sanitized[12:11] = 2'b11;
-        return sanitized;
-    endfunction
-
     assign mtvec = mtvec_q;
     assign mepc = mepc_q;
+
+    csr_warl u_csr_warl (
+        .address(write_addr),
+        .proposed_value(write_data),
+        .legal_value(legal_write_data)
+    );
 
     always_comb begin
         unique case (read_addr)
@@ -61,6 +59,7 @@ module csr_file (
             CSR_MTVAL:    read_data = mtval_q;
             CSR_MCYCLE:   read_data = mcycle_q;
             CSR_MINSTRET: read_data = minstret_q;
+            CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID,
             CSR_MHARTID:  read_data = '0;
             default:      read_data = '0;
         endcase
@@ -68,7 +67,7 @@ module csr_file (
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            mstatus_q <= make_mstatus(1'b0, 1'b0);
+            mstatus_q <= xlen_t'(32'h0000_1800);
             mtvec_q <= '0;
             mscratch_q <= '0;
             mepc_q <= '0;
@@ -83,14 +82,14 @@ module csr_file (
 
             if (write_valid) begin
                 unique case (write_addr)
-                    CSR_MSTATUS:  mstatus_q <= make_mstatus(write_data[3], write_data[7]);
-                    CSR_MTVEC:    mtvec_q <= write_data & ~xlen_t'(3);
-                    CSR_MSCRATCH: mscratch_q <= write_data;
-                    CSR_MEPC:     mepc_q <= write_data & ~xlen_t'(3);
-                    CSR_MCAUSE:   mcause_q <= write_data;
-                    CSR_MTVAL:    mtval_q <= write_data;
-                    CSR_MCYCLE:   mcycle_q <= write_data;
-                    CSR_MINSTRET: minstret_q <= write_data;
+                    CSR_MSTATUS:  mstatus_q <= legal_write_data;
+                    CSR_MTVEC:    mtvec_q <= legal_write_data;
+                    CSR_MSCRATCH: mscratch_q <= legal_write_data;
+                    CSR_MEPC:     mepc_q <= legal_write_data;
+                    CSR_MCAUSE:   mcause_q <= legal_write_data;
+                    CSR_MTVAL:    mtval_q <= legal_write_data;
+                    CSR_MCYCLE:   mcycle_q <= legal_write_data;
+                    CSR_MINSTRET: minstret_q <= legal_write_data;
                     default: ;
                 endcase
             end

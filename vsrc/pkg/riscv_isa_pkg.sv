@@ -15,14 +15,17 @@ package riscv_isa_pkg;
     localparam logic [6:0] OPCODE_JAL       = 7'b1101111;
     localparam logic [6:0] OPCODE_SYSTEM    = 7'b1110011;
 
-    localparam logic [11:0] CSR_MSTATUS  = 12'h300;
-    localparam logic [11:0] CSR_MISA     = 12'h301;
-    localparam logic [11:0] CSR_MTVEC    = 12'h305;
-    localparam logic [11:0] CSR_MSCRATCH = 12'h340;
-    localparam logic [11:0] CSR_MEPC     = 12'h341;
-    localparam logic [11:0] CSR_MCAUSE   = 12'h342;
-    localparam logic [11:0] CSR_MTVAL    = 12'h343;
-    localparam logic [11:0] CSR_MCYCLE   = 12'hB00;
-    localparam logic [11:0] CSR_MINSTRET = 12'hB02;
-    localparam logic [11:0] CSR_MHARTID  = 12'hF14;
+    localparam logic [11:0] CSR_MSTATUS   = 12'h300;
+    localparam logic [11:0] CSR_MISA      = 12'h301;
+    localparam logic [11:0] CSR_MTVEC     = 12'h305;
+    localparam logic [11:0] CSR_MSCRATCH  = 12'h340;
+    localparam logic [11:0] CSR_MEPC      = 12'h341;
+    localparam logic [11:0] CSR_MCAUSE    = 12'h342;
+    localparam logic [11:0] CSR_MTVAL     = 12'h343;
+    localparam logic [11:0] CSR_MCYCLE    = 12'hB00;
+    localparam logic [11:0] CSR_MINSTRET  = 12'hB02;
+    localparam logic [11:0] CSR_MVENDORID = 12'hF11;
+    localparam logic [11:0] CSR_MARCHID   = 12'hF12;
+    localparam logic [11:0] CSR_MIMPID    = 12'hF13;
+    localparam logic [11:0] CSR_MHARTID   = 12'hF14;
 endpackage

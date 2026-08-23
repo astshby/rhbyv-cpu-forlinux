@@ -12,7 +12,8 @@ module csr_access_check (
     always_comb begin
         unique case (address)
             CSR_MSTATUS, CSR_MISA, CSR_MTVEC, CSR_MSCRATCH, CSR_MEPC,
-            CSR_MCAUSE, CSR_MTVAL, CSR_MCYCLE, CSR_MINSTRET, CSR_MHARTID:
+            CSR_MCAUSE, CSR_MTVAL, CSR_MCYCLE, CSR_MINSTRET,
+            CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID, CSR_MHARTID:
                 implemented = 1'b1;
             default:
                 implemented = 1'b0;
