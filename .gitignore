@@ -1,0 +1,8 @@
+/build/
+/logs/
+/vivado-workspace/
+*.fst
+*.vcd
+*.jou
+*.log
+*.str
