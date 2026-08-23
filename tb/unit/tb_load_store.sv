@@ -30,6 +30,18 @@ module tb_load_store;
         size = MEM_HALF; #1;
         assert (bus_wstrb == (DBUS_BYTES'(3) << 2)) else $fatal(1, "half strobe");
         assert (bus_wdata[31:16] == 16'h1234) else $fatal(1, "half data");
+        if (XLEN == 64) begin
+            bus_data = 64'h0123_4567_8000_0001;
+            address = '0;
+            size = MEM_WORD;
+            unsigned_load = 1'b0; #1;
+            assert (load_data == 64'hffff_ffff_8000_0001) else $fatal(1, "LW sign extension");
+            unsigned_load = 1'b1; #1;
+            assert (load_data == 64'h0000_0000_8000_0001) else $fatal(1, "LWU zero extension");
+            size = MEM_DWORD;
+            store_data = 64'hfedc_ba98_7654_3210; #1;
+            assert (bus_wstrb == 8'hff && bus_wdata == store_data) else $fatal(1, "SD lanes");
+        end
         $display("PASS tb_load_store RV%0d", XLEN);
         $finish;
     end

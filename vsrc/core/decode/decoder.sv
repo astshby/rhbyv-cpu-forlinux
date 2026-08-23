@@ -9,6 +9,7 @@ module decoder (
     output core_types_pkg::csr_addr_t csr_addr
 );
     import core_types_pkg::*;
+    import core_config_pkg::*;
     import riscv_isa_pkg::*;
 
     logic [6:0] opcode;
@@ -89,8 +90,14 @@ module decoder (
                     3'b000: begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
                     3'b001: begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
                     3'b010: begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
+                    3'b011: if (XLEN == 64) begin uop.mem_size = MEM_DWORD; uop.illegal = 1'b0; end
                     3'b100: begin uop.mem_size = MEM_BYTE; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
                     3'b101: begin uop.mem_size = MEM_HALF; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
+                    3'b110: if (XLEN == 64) begin
+                        uop.mem_size = MEM_WORD;
+                        uop.load_unsigned = 1'b1;
+                        uop.illegal = 1'b0;
+                    end
                     default: ;
                 endcase
             end
@@ -106,6 +113,7 @@ module decoder (
                     3'b000: begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
                     3'b001: begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
                     3'b010: begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
+                    3'b011: if (XLEN == 64) begin uop.mem_size = MEM_DWORD; uop.illegal = 1'b0; end
                     default: ;
                 endcase
             end
@@ -124,22 +132,45 @@ module decoder (
                     3'b110: begin uop.alu_op = ALU_OR;   uop.illegal = 1'b0; end
                     3'b111: begin uop.alu_op = ALU_AND;  uop.illegal = 1'b0; end
                     3'b001: begin
-                        if (funct7 == 7'b0000000) begin
+                        if (((XLEN == 32) && (funct7 == 7'b0000000)) ||
+                            ((XLEN == 64) && (inst[31:26] == 6'b000000))) begin
                             uop.alu_op = ALU_SLL;
                             uop.illegal = 1'b0;
                         end
                     end
                     3'b101: begin
-                        if (funct7 == 7'b0000000) begin
+                        if (((XLEN == 32) && (funct7 == 7'b0000000)) ||
+                            ((XLEN == 64) && (inst[31:26] == 6'b000000))) begin
                             uop.alu_op = ALU_SRL;
                             uop.illegal = 1'b0;
-                        end else if (funct7 == 7'b0100000) begin
+                        end else if (((XLEN == 32) && (funct7 == 7'b0100000)) ||
+                                     ((XLEN == 64) && (inst[31:26] == 6'b010000))) begin
                             uop.alu_op = ALU_SRA;
                             uop.illegal = 1'b0;
                         end
                     end
                     default: ;
                 endcase
+            end
+            OPCODE_OP_IMM_32: begin
+                if (XLEN == 64) begin
+                    uop.fu = FU_ALU;
+                    uop.op_a_sel = OP_A_RS1;
+                    uop.op_b_sel = OP_B_IMM;
+                    uop.op_width = OP_WIDTH_WORD;
+                    uop.rs1_used = 1'b1;
+                    uop.gpr_write = 1'b1;
+                    uop.wb_sel = WB_ALU;
+                    unique case (funct3)
+                        3'b000: begin uop.alu_op = ALU_ADD; uop.illegal = 1'b0; end
+                        3'b001: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SLL; uop.illegal = 1'b0; end
+                        3'b101: begin
+                            if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SRL; uop.illegal = 1'b0; end
+                            else if (funct7 == 7'b0100000) begin uop.alu_op = ALU_SRA; uop.illegal = 1'b0; end
+                        end
+                        default: ;
+                    endcase
+                end
             end
             OPCODE_OP: begin
                 uop.fu = FU_ALU;
@@ -171,6 +202,30 @@ module decoder (
                     3'b111: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_AND;  uop.illegal = 1'b0; end
                     default: ;
                 endcase
+            end
+            OPCODE_OP_32: begin
+                if (XLEN == 64) begin
+                    uop.fu = FU_ALU;
+                    uop.op_a_sel = OP_A_RS1;
+                    uop.op_b_sel = OP_B_RS2;
+                    uop.op_width = OP_WIDTH_WORD;
+                    uop.rs1_used = 1'b1;
+                    uop.rs2_used = 1'b1;
+                    uop.gpr_write = 1'b1;
+                    uop.wb_sel = WB_ALU;
+                    unique case (funct3)
+                        3'b000: begin
+                            if (funct7 == 7'b0000000) begin uop.alu_op = ALU_ADD; uop.illegal = 1'b0; end
+                            else if (funct7 == 7'b0100000) begin uop.alu_op = ALU_SUB; uop.illegal = 1'b0; end
+                        end
+                        3'b001: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SLL; uop.illegal = 1'b0; end
+                        3'b101: begin
+                            if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SRL; uop.illegal = 1'b0; end
+                            else if (funct7 == 7'b0100000) begin uop.alu_op = ALU_SRA; uop.illegal = 1'b0; end
+                        end
+                        default: ;
+                    endcase
+                end
             end
             OPCODE_MISC_MEM: begin
                 if ((funct3 == 3'b000) || (funct3 == 3'b001))

@@ -29,6 +29,15 @@ module tb_alu;
         check(ALU_SLL, xlen_t'(1), xlen_t'(XLEN-1), xlen_t'(1) << (XLEN-1));
         check(ALU_SRA, xlen_t'(-8), xlen_t'(2), xlen_t'(-2));
         check(ALU_XOR, xlen_t'(16'h55aa), xlen_t'(16'h0ff0), xlen_t'(16'h5a5a));
+        if (XLEN == 64) begin
+            op_width = OP_WIDTH_WORD;
+            check(ALU_ADD, xlen_t'(64'hffff_ffff_7fff_ffff), xlen_t'(1),
+                  xlen_t'(64'hffff_ffff_8000_0000));
+            check(ALU_SRL, xlen_t'(64'hffff_ffff_8000_0000), xlen_t'(31),
+                  xlen_t'(1));
+            check(ALU_SRA, xlen_t'(64'h0000_0000_8000_0000), xlen_t'(31),
+                  xlen_t'(64'hffff_ffff_ffff_ffff));
+        end
         $display("PASS tb_alu RV%0d", XLEN);
         $finish;
     end
