@@ -1,27 +1,29 @@
 // Module: core
 // Description: Portable single-issue IF-D1-D2-EX-MEM-WB in-order core.
 module core (
+    // 端口无法导入包，用全称
     input  logic                              clk,
     input  logic                              rst,
     output logic                              imem_req_valid,
-    output logic [core_config_pkg::XLEN-1:0] imem_req_addr,
+    output logic [core_config_pkg::XLEN-1:0]  imem_req_addr,
     input  logic                              imem_req_ready,
     input  logic                              imem_rsp_valid,
     input  logic [31:0]                       imem_rsp_data,
     output logic                              dmem_req_valid,
     output logic                              dmem_req_write,
-    output logic [core_config_pkg::XLEN-1:0] dmem_req_addr,
-    output logic [core_config_pkg::XLEN-1:0] dmem_req_wdata,
+    output logic [core_config_pkg::XLEN-1:0]  dmem_req_addr,
+    output logic [core_config_pkg::XLEN-1:0]  dmem_req_wdata,
     output logic [core_config_pkg::DBUS_BYTES-1:0] dmem_req_wstrb,
     input  logic                              dmem_req_ready,
     input  logic                              dmem_rsp_valid,
-    input  logic [core_config_pkg::XLEN-1:0] dmem_rsp_rdata,
+    input  logic [core_config_pkg::XLEN-1:0]  dmem_rsp_rdata,
+    // commit:一方面便于调试，可以只管看到运行情况与指令，另一方面，用于规定retired指令，便于指令统计与性能测试。
     output logic                              commit_valid,
-    output logic [core_config_pkg::XLEN-1:0] commit_pc,
+    output logic [core_config_pkg::XLEN-1:0]  commit_pc,
     output logic [31:0]                       commit_inst,
     output logic [core_config_pkg::GPR_ADDR_W-1:0] commit_rd,
     output logic                              commit_rd_we,
-    output logic [core_config_pkg::XLEN-1:0] commit_rd_data,
+    output logic [core_config_pkg::XLEN-1:0]  commit_rd_data,
     output logic                              commit_exception
 );
     import core_config_pkg::*;
@@ -70,10 +72,13 @@ module core (
     logic flush_ex_mem;
     logic fetch_ready;
 
+    // 参数断言仅用于仿真与 lint
+`ifndef SYNTHESIS
     initial begin
         assert ((XLEN == 32) || (XLEN == 64))
             else $error("CORE_XLEN must be 32 or 64");
     end
+`endif
 
     always_comb begin
         prediction = '0;

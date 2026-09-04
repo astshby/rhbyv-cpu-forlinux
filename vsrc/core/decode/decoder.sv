@@ -9,7 +9,7 @@ module decoder (
     output core_types_pkg::csr_addr_t csr_addr
 );
     import core_types_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_unpriv_pkg::*;
 
     logic [6:0] opcode;
     logic [2:0] funct3;

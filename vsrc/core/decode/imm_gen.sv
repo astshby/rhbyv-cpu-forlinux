@@ -5,7 +5,7 @@ module imm_gen (
     output logic [core_config_pkg::XLEN-1:0] imm
 );
     import core_config_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_unpriv_pkg::*;
 
     always_comb begin
         unique case (inst[6:0])
