@@ -1,11 +1,14 @@
 // Module: tb_hazard_unit
 // Description: Checks load-use dependency qualification and x0 suppression.
 module tb_hazard_unit;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import pipeline_pkg::*;
 
     d2_ex_t producer;
     d1_d2_t consumer;
-    logic stall_request;
+    logic load_use_stall;
     hazard_unit dut (.*);
 
     initial begin
@@ -19,12 +22,16 @@ module tb_hazard_unit;
         consumer.uop.rs1_used = 1'b1;
         consumer.rs1 = 5'd4;
         #1;
-        assert (stall_request) else $fatal(1, "missing load-use stall");
+        assert (load_use_stall) else $fatal(1, "missing load-use stall");
         consumer.rs1 = 5'd3; #1;
-        assert (!stall_request) else $fatal(1, "false dependency");
+        assert (!load_use_stall) else $fatal(1, "false dependency");
         producer.rd = '0;
         consumer.rs1 = '0; #1;
-        assert (!stall_request) else $fatal(1, "x0 dependency");
+        assert (!load_use_stall) else $fatal(1, "x0 dependency");
+        producer.rd = 5'd4;
+        consumer.rs1 = 5'd4;
+        producer.exc.valid = 1'b1; #1;
+        assert (!load_use_stall) else $fatal(1, "faulting load dependency");
         $display("PASS tb_hazard_unit");
         $finish;
     end

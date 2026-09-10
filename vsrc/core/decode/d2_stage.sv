@@ -1,11 +1,13 @@
 // Module: d2_stage
 // Description: Adds register operands to the decoded packet before EX.
+// 得到寄存器数据，一并传给ex阶段
 module d2_stage (
     input  pipeline_pkg::d1_d2_t in_packet,
     input  core_types_pkg::xlen_t rs1_data,
     input  core_types_pkg::xlen_t rs2_data,
     output pipeline_pkg::d2_ex_t  out_packet
 );
+    // 具体regfile连接在core（毕竟也包含写穿透）
     always_comb begin
         out_packet = '0;
         out_packet.valid = in_packet.valid;

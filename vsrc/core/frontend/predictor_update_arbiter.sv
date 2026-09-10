@@ -1,5 +1,6 @@
 // Module: predictor_update_arbiter
 // Description: Gives older EX updates priority and buffers a simultaneous D1 JAL update.
+// EX 指令比 D1 指令更老；一个 pending 槽保存同拍到达的年轻更新。
 module predictor_update_arbiter (
     input  logic                       clk,
     input  logic                       rst,
@@ -12,6 +13,7 @@ module predictor_update_arbiter (
 
     pred_update_t pending_q;
 
+    // 单端口选择：EX > pending > D1。
     always_comb begin
         if (ex_update.valid)
             update = ex_update;
@@ -22,9 +24,10 @@ module predictor_update_arbiter (
         overflow = ex_update.valid && pending_q.valid && d1_update.valid;
     end
 
+    // pending 管理：EX 占用端口时缓存 D1，pending 发出后可由新 D1 接替。
     always_ff @(posedge clk) begin
         if (rst) begin
-            pending_q.valid <= 1'b0;
+            pending_q <= '0;
         end else if (ex_update.valid) begin
             if (d1_update.valid && !pending_q.valid)
                 pending_q <= d1_update;
@@ -32,9 +35,9 @@ module predictor_update_arbiter (
             if (d1_update.valid)
                 pending_q <= d1_update;
             else
-                pending_q.valid <= 1'b0;
+                pending_q <= '0;
         end else begin
-            pending_q.valid <= 1'b0;
+            pending_q <= '0;
         end
     end
 endmodule

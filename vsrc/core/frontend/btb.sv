@@ -1,5 +1,6 @@
 // Module: btb
 // Description: Direct-mapped target table with synchronous update and explicit lookup bypass.
+// 直接映射 BTB 保存完整 PC 标签、目标地址和控制流类型。
 module btb (
     input  logic                              clk,
     input  logic                              rst,
@@ -23,20 +24,22 @@ module btb (
     logic [BTB_IDX_W-1:0] update_idx;
     integer entry;
 
+    // 查表与同拍更新旁路：旁路避免刚训练的入口还不可见。
     always_comb begin
         lookup_idx = lookup_pc[2 +: BTB_IDX_W];
         update_idx = update_pc[2 +: BTB_IDX_W];
         lookup_hit = valid_q[lookup_idx] && (tag_q[lookup_idx] == lookup_pc);
-        lookup_target = target_q[lookup_idx];
-        lookup_kind = kind_q[lookup_idx];
+        lookup_target = lookup_hit ? target_q[lookup_idx] : '0;
+        lookup_kind = lookup_hit ? kind_q[lookup_idx] : BR_NONE;
 
         if (update_valid && (update_idx == lookup_idx)) begin
             lookup_hit = (update_pc == lookup_pc);
-            lookup_target = update_target;
-            lookup_kind = update_kind;
+            lookup_target = lookup_hit ? update_target : '0;
+            lookup_kind = lookup_hit ? update_kind : BR_NONE;
         end
     end
 
+    // 表项写入：同索引不同标签会直接替换旧入口。
     always_ff @(posedge clk) begin
         if (rst) begin
             for (entry = 0; entry < BTB_ENTRIES; entry = entry + 1)

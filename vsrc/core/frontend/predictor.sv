@@ -1,5 +1,6 @@
 // Module: predictor
 // Description: Combines one BTB with one GShare direction predictor.
+// BTB 提供目标与类型；仅条件分支使用 GShare 决定 taken。
 module predictor (
     input  logic                       clk,
     input  logic                       rst,
@@ -18,6 +19,7 @@ module predictor (
     logic lookup_conditional;
     logic update_conditional;
 
+    // 汇总预测，并识别查询/更新是否属于条件分支。
     always_comb begin
         lookup_conditional = (btb_kind == BR_EQ) || (btb_kind == BR_NE) ||
                              (btb_kind == BR_LT) || (btb_kind == BR_GE) ||

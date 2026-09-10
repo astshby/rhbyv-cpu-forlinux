@@ -1,11 +1,12 @@
 // Module: imm_gen
 // Description: Expands RISC-V immediates to XLEN using opcode format.
+// 产生立即数并扩展到XLEN位宽
 module imm_gen (
     input  logic [31:0]                       inst,
     output logic [core_config_pkg::XLEN-1:0] imm
 );
     import core_config_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_unpriv_pkg::*;
 
     always_comb begin
         unique case (inst[6:0])

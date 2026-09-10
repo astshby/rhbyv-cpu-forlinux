@@ -15,12 +15,9 @@ module cpu_top (
     logic [XLEN-1:0] dmem_req_wdata;
     logic [DBUS_BYTES-1:0] dmem_req_wstrb;
 
-    reset_sync u_reset_sync (
-        .clk,
-        .reset_n,
-        .rst
-    );
+    reset_sync u_reset_sync ( .* );
 
+    // // 当前不完整1'b0是初始化，（）是空信号
     core u_core (
         .clk,
         .rst,
@@ -29,6 +26,7 @@ module cpu_top (
         .imem_req_ready(1'b0),
         .imem_rsp_valid(1'b0),
         .imem_rsp_data('0),
+        .imem_rsp_ready(),
         .dmem_req_valid,
         .dmem_req_write,
         .dmem_req_addr,
@@ -37,6 +35,7 @@ module cpu_top (
         .dmem_req_ready(1'b0),
         .dmem_rsp_valid(1'b0),
         .dmem_rsp_rdata('0),
+        .dmem_rsp_ready(),
         .commit_valid(),
         .commit_pc(),
         .commit_inst(),

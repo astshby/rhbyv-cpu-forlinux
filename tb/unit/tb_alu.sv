@@ -1,6 +1,9 @@
 // Module: tb_alu
 // Description: Checks arithmetic, comparisons, logic, and XLEN shift behavior.
 module tb_alu;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_config_pkg::*;
     import core_types_pkg::*;
 

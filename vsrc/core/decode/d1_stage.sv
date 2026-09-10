@@ -1,5 +1,6 @@
 // Module: d1_stage
 // Description: Decodes instructions and resolves operand-free JAL control flow.
+// 主要包含：获取指令后的初级解码
 module d1_stage (
     input  pipeline_pkg::if_d1_t  in_packet,
     output pipeline_pkg::d1_d2_t  out_packet,
@@ -31,7 +32,34 @@ module d1_stage (
     );
 
     always_comb begin
+        // 唯一的J指令：jal提前处理
+        jal_target = in_packet.pc + imm;
+
+        // JAL 不进入 GHR，但需要写入 BTB；真正推进时由 core 放行更新。
+        pred_update = '0;
+        if (in_packet.valid && (uop.branch_op == BR_JAL)) begin
+            pred_update.valid = 1'b1;
+            pred_update.kind = BR_JAL;
+            pred_update.pc = in_packet.pc;
+            pred_update.taken = 1'b1;
+            pred_update.target = jal_target;
+            pred_update.pred = in_packet.pred;
+        end
+
+        // jal:指令有效+jal+没有跳转/跳转目标有误：重定向
+        redirect = '0;
+        if (in_packet.valid && (uop.branch_op == BR_JAL) &&
+            (!in_packet.pred.taken || (in_packet.pred.target != jal_target))) begin
+            redirect.valid = 1'b1;
+            redirect.pc = jal_target;
+            redirect.reason = REDIR_D1_JAL;
+        end
+    end
+
+    always_comb begin
+        // 默认赋值，decoder的uop没有赋无用的值就是因为有这个，暂时没有exc处理
         out_packet = '0;
+
         out_packet.valid = in_packet.valid;
         out_packet.pc = in_packet.pc;
         out_packet.seq_pc = in_packet.seq_pc;
@@ -44,22 +72,5 @@ module d1_stage (
         out_packet.uop = uop;
         out_packet.pred = in_packet.pred;
 
-        jal_target = in_packet.pc + imm;
-        redirect = '0;
-        pred_update = '0;
-        if (in_packet.valid && (uop.branch_op == BR_JAL)) begin
-            pred_update.valid = 1'b1;
-            pred_update.kind = BR_JAL;
-            pred_update.pc = in_packet.pc;
-            pred_update.taken = 1'b1;
-            pred_update.target = jal_target;
-            pred_update.pred = in_packet.pred;
-        end
-        if (in_packet.valid && (uop.branch_op == BR_JAL) &&
-            (!in_packet.pred.taken || (in_packet.pred.target != jal_target))) begin
-            redirect.valid = 1'b1;
-            redirect.pc = jal_target;
-            redirect.reason = REDIR_D1_JAL;
-        end
     end
 endmodule

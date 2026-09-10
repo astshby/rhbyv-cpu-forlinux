@@ -1,5 +1,6 @@
 // Module: gshare
 // Description: Non-speculative global-history predictor trained by saved PHT index.
+// 查询使用 PC 异或已提交历史；更新使用取指时保存的 PHT 索引。
 module gshare (
     input  logic                              clk,
     input  logic                              rst,
@@ -29,18 +30,24 @@ module gshare (
             next_counter = (current == 2'b00) ? current : current - 2'b01;
     endfunction
 
+    // 更新值计算：新表项从弱不跳转状态开始训练。
     always_comb begin
-        lookup_idx = lookup_pc[2 +: PHT_IDX_W] ^ ghr_q;
-        lookup_counter = pht_valid_q[lookup_idx] ? pht_q[lookup_idx] : 2'b01;
         update_counter = next_counter(
             pht_valid_q[update_idx] ? pht_q[update_idx] : 2'b01,
             update_taken
         );
+    end
+
+    // 方向查询：同索引更新旁路保证当前拍看到最新计数器。
+    always_comb begin
+        lookup_idx = lookup_pc[2 +: PHT_IDX_W] ^ ghr_q;
+        lookup_counter = pht_valid_q[lookup_idx] ? pht_q[lookup_idx] : 2'b01;
         if (update_valid && (update_idx == lookup_idx))
             lookup_counter = update_counter;
         lookup_taken = lookup_counter[1];
     end
 
+    // 只有条件分支到达此更新端口，JAL/JALR 不写 PHT，也不进入 GHR。
     always_ff @(posedge clk) begin
         if (rst) begin
             ghr_q <= '0;
