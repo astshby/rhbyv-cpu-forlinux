@@ -1,5 +1,7 @@
 // Module: tb_core_config
 // Description: Checks the build-time RV32/RV64 configuration contract.
+// tb必须在某个块中运行，常用initial块与$finish搭配
+// 用于检查常规core设置
 module tb_core_config;
     import core_config_pkg::*;
 

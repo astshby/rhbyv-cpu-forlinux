@@ -45,8 +45,22 @@ package pipeline_pkg;
         redirect_reason_e reason;
     } redirect_t;
 
+    // 每个流水寄存器每拍只有三种动作：接收、保持、清除 valid。
+    typedef enum logic [1:0] {
+        PIPE_ADVANCE, PIPE_HOLD, PIPE_CLEAR
+    } pipe_action_e;
+
+    // 每个流水级寄存器的动作
+    typedef struct packed {
+        pipe_action_e if_d1;
+        pipe_action_e d1_d2;
+        pipe_action_e d2_ex;
+        pipe_action_e ex_mem;
+        pipe_action_e mem_wb;
+    } pipeline_actions_t;
+
     // 流水级寄存器
-    // special：valid，标记指令有效性，用于bubble（stall与flush）
+    // special：valid 标记真实指令；PIPE_CLEAR 插入无效包，PIPE_HOLD 保持原包。
     // csr后期出现：wb阶段才写回
     typedef struct packed {
         logic        valid;
@@ -95,7 +109,7 @@ package pipeline_pkg;
         logic [31:0] inst;
         gpr_addr_t   rd;
         xlen_t       result;
-        xlen_t       store_data;
+        xlen_t       store_data;   //没有写入uop，必须单独给出
         csr_addr_t   csr_addr;
         xlen_t       csr_old;
         xlen_t       csr_new;
@@ -111,11 +125,11 @@ package pipeline_pkg;
         xlen_t       seq_pc;
         logic [31:0] inst;
         gpr_addr_t   rd;
-        xlen_t       wb_data;
+        xlen_t       result; // ALU 结果或访存地址；load 在 WB 使用地址低位选择返回数据
         csr_addr_t   csr_addr;
         xlen_t       csr_old;
         xlen_t       csr_new;
-        logic        csr_we;
+        logic        csr_we; // 没有pred信息，pred不在wb阶段解决
         uop_t        uop;
         exception_t  exc;
     } mem_wb_t;

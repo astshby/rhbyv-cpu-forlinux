@@ -1,5 +1,6 @@
 // Module: tb_riscv_priv
 // Description: Checks privileged instruction, CSR, and trap encodings.
+// 用于检查特权级指令编码
 module tb_riscv_priv;
     import core_config_pkg::*;
     import riscv_priv_pkg::*;

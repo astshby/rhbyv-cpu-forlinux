@@ -1,5 +1,6 @@
 // Module: decoder
 // Description: Converts a canonical 32-bit instruction into a typed uOp.
+// 负责解码，获得静态信息uop
 module decoder (
     input  logic [31:0]              inst,
     output core_types_pkg::uop_t     uop,
@@ -24,8 +25,10 @@ module decoder (
         rd = inst[11:7];
         csr_addr = inst[31:20];
         uop = '0;
+        // 默认不合法，‘白名单’
         uop.illegal = 1'b1;
 
+        // unique case:并行执行，互斥分支,case类似c语言顺序执行
         unique case (opcode)
             OPCODE_LUI: begin
                 uop.illegal = 1'b0;
@@ -53,7 +56,7 @@ module decoder (
                 uop.wb_sel = WB_SEQ_PC;
             end
             OPCODE_JALR: begin
-                if (funct3 == 3'b000) begin
+                if (funct3 == F3_JALR) begin // RV 要求 JALR 的 funct3 必须为 000
                     uop.illegal = 1'b0;
                     uop.fu = FU_BRANCH;
                     uop.branch_op = BR_JALR;
@@ -67,12 +70,12 @@ module decoder (
                 uop.rs1_used = 1'b1;
                 uop.rs2_used = 1'b1;
                 unique case (funct3)
-                    3'b000: begin uop.branch_op = BR_EQ;  uop.illegal = 1'b0; end
-                    3'b001: begin uop.branch_op = BR_NE;  uop.illegal = 1'b0; end
-                    3'b100: begin uop.branch_op = BR_LT;  uop.illegal = 1'b0; end
-                    3'b101: begin uop.branch_op = BR_GE;  uop.illegal = 1'b0; end
-                    3'b110: begin uop.branch_op = BR_LTU; uop.illegal = 1'b0; end
-                    3'b111: begin uop.branch_op = BR_GEU; uop.illegal = 1'b0; end
+                    F3_BRANCH_BEQ:  begin uop.branch_op = BR_EQ;  uop.illegal = 1'b0; end
+                    F3_BRANCH_BNE:  begin uop.branch_op = BR_NE;  uop.illegal = 1'b0; end
+                    F3_BRANCH_BLT:  begin uop.branch_op = BR_LT;  uop.illegal = 1'b0; end
+                    F3_BRANCH_BGE:  begin uop.branch_op = BR_GE;  uop.illegal = 1'b0; end
+                    F3_BRANCH_BLTU: begin uop.branch_op = BR_LTU; uop.illegal = 1'b0; end
+                    F3_BRANCH_BGEU: begin uop.branch_op = BR_GEU; uop.illegal = 1'b0; end
                     default: ;
                 endcase
             end
@@ -86,11 +89,11 @@ module decoder (
                 uop.mem_read = 1'b1;
                 uop.wb_sel = WB_LOAD;
                 unique case (funct3)
-                    3'b000: begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
-                    3'b001: begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
-                    3'b010: begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
-                    3'b100: begin uop.mem_size = MEM_BYTE; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
-                    3'b101: begin uop.mem_size = MEM_HALF; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
+                    F3_LOAD_LB:  begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
+                    F3_LOAD_LH:  begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
+                    F3_LOAD_LW:  begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
+                    F3_LOAD_LBU: begin uop.mem_size = MEM_BYTE; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
+                    F3_LOAD_LHU: begin uop.mem_size = MEM_HALF; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
                     default: ;
                 endcase
             end
@@ -103,9 +106,9 @@ module decoder (
                 uop.rs2_used = 1'b1;
                 uop.mem_write = 1'b1;
                 unique case (funct3)
-                    3'b000: begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
-                    3'b001: begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
-                    3'b010: begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
+                    F3_STORE_SB: begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
+                    F3_STORE_SH: begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
+                    F3_STORE_SW: begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
                     default: ;
                 endcase
             end
@@ -117,23 +120,23 @@ module decoder (
                 uop.gpr_write = 1'b1;
                 uop.wb_sel = WB_ALU;
                 unique case (funct3)
-                    3'b000: begin uop.alu_op = ALU_ADD;  uop.illegal = 1'b0; end
-                    3'b010: begin uop.alu_op = ALU_SLT;  uop.illegal = 1'b0; end
-                    3'b011: begin uop.alu_op = ALU_SLTU; uop.illegal = 1'b0; end
-                    3'b100: begin uop.alu_op = ALU_XOR;  uop.illegal = 1'b0; end
-                    3'b110: begin uop.alu_op = ALU_OR;   uop.illegal = 1'b0; end
-                    3'b111: begin uop.alu_op = ALU_AND;  uop.illegal = 1'b0; end
-                    3'b001: begin
-                        if (funct7 == 7'b0000000) begin
+                    F3_OP_IMM_ADDI:  begin uop.alu_op = ALU_ADD;  uop.illegal = 1'b0; end
+                    F3_OP_IMM_SLTI:  begin uop.alu_op = ALU_SLT;  uop.illegal = 1'b0; end
+                    F3_OP_IMM_SLTIU: begin uop.alu_op = ALU_SLTU; uop.illegal = 1'b0; end
+                    F3_OP_IMM_XORI:  begin uop.alu_op = ALU_XOR;  uop.illegal = 1'b0; end
+                    F3_OP_IMM_ORI:   begin uop.alu_op = ALU_OR;   uop.illegal = 1'b0; end
+                    F3_OP_IMM_ANDI:  begin uop.alu_op = ALU_AND;  uop.illegal = 1'b0; end
+                    F3_OP_IMM_SLLI: begin
+                        if (funct7 == F7_OP_IMM_SLLI) begin
                             uop.alu_op = ALU_SLL;
                             uop.illegal = 1'b0;
                         end
                     end
-                    3'b101: begin
-                        if (funct7 == 7'b0000000) begin
+                    F3_OP_IMM_SRLI_SRAI: begin
+                        if (funct7 == F7_OP_IMM_SRLI) begin
                             uop.alu_op = ALU_SRL;
                             uop.illegal = 1'b0;
-                        end else if (funct7 == 7'b0100000) begin
+                        end else if (funct7 == F7_OP_IMM_SRAI) begin
                             uop.alu_op = ALU_SRA;
                             uop.illegal = 1'b0;
                         end
@@ -150,30 +153,32 @@ module decoder (
                 uop.gpr_write = 1'b1;
                 uop.wb_sel = WB_ALU;
                 unique case (funct3)
-                    3'b000: begin
-                        if (funct7 == 7'b0000000) begin
+                    F3_OP_ADD_SUB: begin
+                        if (funct7 == F7_OP_BASE) begin
                             uop.alu_op = ALU_ADD;
                             uop.illegal = 1'b0;
-                        end else if (funct7 == 7'b0100000) begin
+                        end else if (funct7 == F7_OP_SUB_SRA) begin
                             uop.alu_op = ALU_SUB;
                             uop.illegal = 1'b0;
                         end
                     end
-                    3'b001: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SLL;  uop.illegal = 1'b0; end
-                    3'b010: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SLT;  uop.illegal = 1'b0; end
-                    3'b011: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SLTU; uop.illegal = 1'b0; end
-                    3'b100: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_XOR;  uop.illegal = 1'b0; end
-                    3'b101: begin
-                        if (funct7 == 7'b0000000) begin uop.alu_op = ALU_SRL; uop.illegal = 1'b0; end
-                        else if (funct7 == 7'b0100000) begin uop.alu_op = ALU_SRA; uop.illegal = 1'b0; end
+                    F3_OP_SLL:  if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_SLL;  uop.illegal = 1'b0; end
+                    F3_OP_SLT:  if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_SLT;  uop.illegal = 1'b0; end
+                    F3_OP_SLTU: if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_SLTU; uop.illegal = 1'b0; end
+                    F3_OP_XOR:  if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_XOR;  uop.illegal = 1'b0; end
+                    F3_OP_SRL_SRA: begin
+                        if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_SRL; uop.illegal = 1'b0; end
+                        else if (funct7 == F7_OP_SUB_SRA) begin uop.alu_op = ALU_SRA; uop.illegal = 1'b0; end
                     end
-                    3'b110: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_OR;   uop.illegal = 1'b0; end
-                    3'b111: if (funct7 == 7'b0000000) begin uop.alu_op = ALU_AND;  uop.illegal = 1'b0; end
+                    F3_OP_OR:  if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_OR;  uop.illegal = 1'b0; end
+                    F3_OP_AND: if (funct7 == F7_OP_BASE) begin uop.alu_op = ALU_AND; uop.illegal = 1'b0; end
                     default: ;
                 endcase
             end
+            // 内存排序与取指同步指令
             OPCODE_MISC_MEM: begin
-                if ((funct3 == 3'b000) || (funct3 == 3'b001))
+                if ((funct3 == F3_MISC_MEM_FENCE) ||
+                    (funct3 == F3_MISC_MEM_FENCE_I))
                     uop.illegal = 1'b0;
             end
             default: ;

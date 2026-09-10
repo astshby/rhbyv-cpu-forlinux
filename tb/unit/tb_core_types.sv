@@ -1,5 +1,6 @@
 // Module: tb_core_types
 // Description: Checks packed uOp defaults and mutually exclusive SYSTEM classification.
+// 用于检查静态代码块
 module tb_core_types;
     import core_types_pkg::*;
 

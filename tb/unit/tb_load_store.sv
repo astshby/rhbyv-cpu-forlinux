@@ -1,6 +1,9 @@
 // Module: tb_load_store
 // Description: Checks RV32 byte lanes, write strobes, and load extension.
 module tb_load_store;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_config_pkg::*;
     import core_types_pkg::*;
 

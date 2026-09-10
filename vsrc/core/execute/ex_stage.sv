@@ -2,16 +2,15 @@
 // Description: Applies forwarding and executes ALU, address, branch, and JALR operations.
 module ex_stage (
     input  pipeline_pkg::d2_ex_t      in_packet,
-    input  logic                       mem_forward_valid,
+    // 包含了mem阶段与wb阶段的forward信息,有效位是始终的判据,以及给d2的前递（写穿透）
+    input  logic                      mem_forward_valid,
     input  core_types_pkg::gpr_addr_t mem_forward_addr,
     input  core_types_pkg::xlen_t     mem_forward_data,
-    input  logic                       wb_forward_valid,
+    input  logic                      wb_forward_valid,
     input  core_types_pkg::gpr_addr_t wb_forward_addr,
     input  core_types_pkg::xlen_t     wb_forward_data,
     output pipeline_pkg::ex_mem_t     out_packet,
-    output pipeline_pkg::redirect_t   redirect,
-    output core_types_pkg::xlen_t     forwarded_rs1,
-    output core_types_pkg::xlen_t     forwarded_rs2
+    output pipeline_pkg::redirect_t   redirect
 );
     import core_types_pkg::*;
     import pipeline_pkg::*;
@@ -23,7 +22,10 @@ module ex_stage (
     xlen_t branch_target;
     logic control_op;
     logic mispredict;
+    xlen_t forwarded_rs1;
+    xlen_t forwarded_rs2;
 
+    // 对rs1和rs2进行前递选择
     operand_bypass u_rs1_bypass (
         .source_addr(in_packet.rs1),
         .source_used(in_packet.uop.rs1_used),
@@ -50,6 +52,7 @@ module ex_stage (
         .forwarded_data(forwarded_rs2)
     );
 
+    // 经过前递后选择操作数
     always_comb begin
         unique case (in_packet.uop.op_a_sel)
             OP_A_RS1:  operand_a = forwarded_rs1;
@@ -60,6 +63,7 @@ module ex_stage (
                   ? in_packet.imm : forwarded_rs2;
     end
 
+    // 连接alu和branch_unit模块
     alu u_alu (
         .operand_a,
         .operand_b,
@@ -79,20 +83,9 @@ module ex_stage (
         .target(branch_target)
     );
 
+    // 判断是否发生分支预测错误
+    // control_op判断分支（除jal），mispredict判断预测是否正确，redirect用于指示流水线需要跳转到新的PC
     always_comb begin
-        out_packet = '0;
-        out_packet.valid = in_packet.valid;
-        out_packet.pc = in_packet.pc;
-        out_packet.seq_pc = in_packet.seq_pc;
-        out_packet.inst = in_packet.inst;
-        out_packet.rd = in_packet.rd;
-        out_packet.result = alu_result;
-        out_packet.store_data = forwarded_rs2;
-        out_packet.csr_addr = in_packet.csr_addr;
-        out_packet.uop = in_packet.uop;
-        out_packet.pred = in_packet.pred;
-        out_packet.exc = in_packet.exc;
-
         control_op = (in_packet.uop.branch_op != BR_NONE) &&
                      (in_packet.uop.branch_op != BR_JAL);
         mispredict = control_op &&
@@ -104,5 +97,22 @@ module ex_stage (
             redirect.pc = branch_taken ? branch_target : in_packet.seq_pc;
             redirect.reason = REDIR_EX_BRANCH;
         end
+    end
+
+    // 每个模块必有的打包输出结果
+    always_comb begin
+        out_packet = '0;
+        out_packet.valid = in_packet.valid;
+        out_packet.pc = in_packet.pc;
+        out_packet.seq_pc = in_packet.seq_pc;
+        out_packet.inst = in_packet.inst;
+        out_packet.rd = in_packet.rd;
+        out_packet.result = alu_result;
+        out_packet.store_data = forwarded_rs2; //rs1计算地址
+        out_packet.csr_addr = in_packet.csr_addr;
+        out_packet.uop = in_packet.uop;
+        out_packet.pred = in_packet.pred;
+        out_packet.exc = in_packet.exc;
+
     end
 endmodule

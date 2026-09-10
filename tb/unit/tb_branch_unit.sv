@@ -1,6 +1,9 @@
 // Module: tb_branch_unit
 // Description: Checks signed/unsigned conditions and JALR bit-zero clearing.
 module tb_branch_unit;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_types_pkg::*;
 
     branch_op_e branch_op;

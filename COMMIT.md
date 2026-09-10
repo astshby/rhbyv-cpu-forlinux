@@ -77,3 +77,21 @@ A1 及以后阶段的 decoder、异常检测和串行化条件需要分别改为
 - `make unit XLEN=32` 和 `make unit XLEN=64` 的全部模块测试通过。
 - `make directed XLEN=32` 通过，`tb_core_rv32i` 用 33 个周期完成。
 - A1 的 directed test 明确限定 `XLEN=32`；RV64 整核指令行为由 A2 验收。
+
+## 2026-09-10（Asia/Shanghai）— A1 审核改革固化
+
+### 关键修改
+
+- 将流水级控制统一为 `pipeline_actions_t`，按级表达推进、保持和清空，消除旧的分散 `hold/flush/bubble` 组合。
+- 重构 IF 请求、响应与单项缓冲；重定向可以杀死在途错误路径响应，并保留后压下的有效指令。
+- 将 load 请求发射与返回解耦：MEM 只负责请求，WB 等待响应并在返回后提交，流水线仅在真实内存等待时停顿。
+- 按功能拆分核心模块中的组合逻辑和时序逻辑，保留并补充关键中文注释。
+- 统一测试时序、具名指令编码和 PASS 判定，新增 IF、MEM、WB、流水线控制、存储握手、cache wait 与 load 流水验证。
+- 新增仓库内 `AGENTS.md` 和 `MEMORY_HANDSHAKE.md`，固化代码分块、注释保护和回归规则。
+
+### 验证
+
+- `make lint XLEN=32`、`make lint XLEN=64` 通过。
+- `make unit XLEN=32`、`make unit XLEN=64` 各 17 项全部通过。
+- `make directed XLEN=32` 通过：cache wait 11 周期、load pipeline 18 周期、RV32I 32 周期。
+- A1 仍是 RV32I 阶段，RV64 整核测试在 A2 功能合入后执行。

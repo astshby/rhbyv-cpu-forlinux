@@ -16,6 +16,65 @@ package riscv_unpriv_pkg;
     localparam logic [6:0] OPCODE_JAL       = 7'b1101111;
     localparam logic [6:0] OPCODE_SYSTEM    = 7'b1110011;
 
+    // funct3 的含义由 opcode 决定，因此名字保留所属指令组的上下文
+    localparam logic [2:0] F3_JALR             = 3'b000;
+
+    localparam logic [2:0] F3_BRANCH_BEQ       = 3'b000;
+    localparam logic [2:0] F3_BRANCH_BNE       = 3'b001;
+    localparam logic [2:0] F3_BRANCH_BLT       = 3'b100;
+    localparam logic [2:0] F3_BRANCH_BGE       = 3'b101;
+    localparam logic [2:0] F3_BRANCH_BLTU      = 3'b110;
+    localparam logic [2:0] F3_BRANCH_BGEU      = 3'b111;
+
+    localparam logic [2:0] F3_LOAD_LB          = 3'b000;
+    localparam logic [2:0] F3_LOAD_LH          = 3'b001;
+    localparam logic [2:0] F3_LOAD_LW          = 3'b010;
+    localparam logic [2:0] F3_LOAD_LBU         = 3'b100;
+    localparam logic [2:0] F3_LOAD_LHU         = 3'b101;
+
+    localparam logic [2:0] F3_STORE_SB         = 3'b000;
+    localparam logic [2:0] F3_STORE_SH         = 3'b001;
+    localparam logic [2:0] F3_STORE_SW         = 3'b010;
+
+    localparam logic [2:0] F3_OP_IMM_ADDI      = 3'b000;
+    localparam logic [2:0] F3_OP_IMM_SLLI      = 3'b001;
+    localparam logic [2:0] F3_OP_IMM_SLTI      = 3'b010;
+    localparam logic [2:0] F3_OP_IMM_SLTIU     = 3'b011;
+    localparam logic [2:0] F3_OP_IMM_XORI      = 3'b100;
+    localparam logic [2:0] F3_OP_IMM_SRLI_SRAI = 3'b101;
+    localparam logic [2:0] F3_OP_IMM_ORI       = 3'b110;
+    localparam logic [2:0] F3_OP_IMM_ANDI      = 3'b111;
+
+    localparam logic [2:0] F3_OP_ADD_SUB       = 3'b000;
+    localparam logic [2:0] F3_OP_SLL           = 3'b001;
+    localparam logic [2:0] F3_OP_SLT           = 3'b010;
+    localparam logic [2:0] F3_OP_SLTU          = 3'b011;
+    localparam logic [2:0] F3_OP_XOR           = 3'b100;
+    localparam logic [2:0] F3_OP_SRL_SRA       = 3'b101;
+    localparam logic [2:0] F3_OP_OR            = 3'b110;
+    localparam logic [2:0] F3_OP_AND           = 3'b111;
+
+    localparam logic [2:0] F3_MISC_MEM_FENCE   = 3'b000;
+    localparam logic [2:0] F3_MISC_MEM_FENCE_I = 3'b001;
+
+    // Zicsr 的寄存器与立即数形式共用 SYSTEM opcode
+    localparam logic [2:0] F3_SYSTEM_ENV       = 3'b000;
+    localparam logic [2:0] F3_SYSTEM_CSRRW     = 3'b001;
+    localparam logic [2:0] F3_SYSTEM_CSRRS     = 3'b010;
+    localparam logic [2:0] F3_SYSTEM_CSRRC     = 3'b011;
+    localparam logic [2:0] F3_SYSTEM_CSRRWI    = 3'b101;
+    localparam logic [2:0] F3_SYSTEM_CSRRSI    = 3'b110;
+    localparam logic [2:0] F3_SYSTEM_CSRRCI    = 3'b111;
+
+    // funct7 同样带上 OP/OP-IMM 上下文；M 扩展复用 F7_OP_MULDIV
+    localparam logic [6:0] F7_OP_BASE          = 7'b0000000;
+    localparam logic [6:0] F7_OP_SUB_SRA       = 7'b0100000;
+    localparam logic [6:0] F7_OP_MULDIV        = 7'b0000001;
+    // 以下是 RV32 移位立即数编码；RV64 的 shamt[5] 占用 inst[25]，A2 应改用 funct6
+    localparam logic [6:0] F7_OP_IMM_SLLI      = 7'b0000000;
+    localparam logic [6:0] F7_OP_IMM_SRLI      = 7'b0000000;
+    localparam logic [6:0] F7_OP_IMM_SRAI      = 7'b0100000;
+
     localparam logic [31:0] INST_ECALL  = 32'h0000_0073;
     localparam logic [31:0] INST_EBREAK = 32'h0010_0073;
 endpackage

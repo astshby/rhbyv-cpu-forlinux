@@ -1,5 +1,6 @@
 // Module: tb_riscv_unpriv
 // Description: Checks unprivileged instruction encodings.
+// 用于检查非特权级指令编码
 module tb_riscv_unpriv;
     import riscv_unpriv_pkg::*;
 
