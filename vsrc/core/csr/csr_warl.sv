@@ -6,16 +6,17 @@ module csr_warl (
     output core_types_pkg::xlen_t    legal_value
 );
     import core_types_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
 
+    // 旁路和最终提交必须看到同一个合法值，避免相邻 CSR 指令读取非法中间态。
     always_comb begin
         legal_value = proposed_value;
         unique case (address)
             CSR_MSTATUS: begin
                 legal_value = '0;
-                legal_value[3] = proposed_value[3];
-                legal_value[7] = proposed_value[7];
-                legal_value[12:11] = 2'b11;
+                legal_value[MSTATUS_MIE_BIT] = proposed_value[MSTATUS_MIE_BIT];
+                legal_value[MSTATUS_MPIE_BIT] = proposed_value[MSTATUS_MPIE_BIT];
+                legal_value[MSTATUS_MPP_MSB:MSTATUS_MPP_LSB] = 2'b11;
             end
             CSR_MTVEC, CSR_MEPC: legal_value = proposed_value & ~xlen_t'(3);
             default: ;

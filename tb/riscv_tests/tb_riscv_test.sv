@@ -1,6 +1,9 @@
 // Module: tb_riscv_test
 // Description: Loads an upstream riscv-test image and reports its MMIO PASS/FAIL result.
 module tb_riscv_test;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_config_pkg::*;
 
     logic clk = 1'b0;
@@ -42,7 +45,8 @@ module tb_riscv_test;
         @(negedge clk);
         rst = 1'b0;
         for (cycles = 0; cycles < max_cycles; cycles = cycles + 1) begin
-            @(posedge clk);
+            // 下降沿观察上升沿已经完成的提交与 MMIO 状态，避免 NBA 调度竞争。
+            @(negedge clk);
             if (trace_enable && commit_valid)
                 $display("COMMIT pc=%h inst=%h rd=%0d we=%0b data=%h exc=%0b",
                          commit_pc, commit_inst, commit_rd, commit_rd_we,

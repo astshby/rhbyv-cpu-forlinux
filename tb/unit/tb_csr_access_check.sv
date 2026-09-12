@@ -1,8 +1,11 @@
 // Module: tb_csr_access_check
 // Description: Checks implemented CSR addresses and read-only write rejection.
 module tb_csr_access_check;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_types_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
 
     csr_addr_t address;
     logic write_intent;
@@ -24,6 +27,10 @@ module tb_csr_access_check;
         assert (implemented && read_only && !illegal) else $fatal(1, "MHARTID read");
         address = CSR_MVENDORID; #1;
         assert (implemented && read_only && !illegal) else $fatal(1, "MVENDORID read");
+        address = CSR_MIE; #1;
+        assert (!implemented && illegal) else $fatal(1, "MIE is reserved for interrupt stage");
+        address = CSR_MIP; #1;
+        assert (!implemented && illegal) else $fatal(1, "MIP is reserved for interrupt stage");
         address = 12'h7c0; #1;
         assert (!implemented && illegal) else $fatal(1, "unimplemented CSR");
         $display("PASS tb_csr_access_check");

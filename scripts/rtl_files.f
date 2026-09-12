@@ -1,5 +1,6 @@
 vsrc/pkg/core_config_pkg.sv
-vsrc/pkg/riscv_isa_pkg.sv
+vsrc/pkg/riscv_unpriv_pkg.sv
+vsrc/pkg/riscv_priv_pkg.sv
 vsrc/pkg/core_types_pkg.sv
 vsrc/pkg/pipeline_pkg.sv
 vsrc/core/csr/csr_exec.sv

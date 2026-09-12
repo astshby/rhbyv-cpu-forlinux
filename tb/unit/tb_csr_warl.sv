@@ -1,8 +1,11 @@
 // Module: tb_csr_warl
 // Description: Checks that forwarded CSR values obey the implemented WARL rules.
 module tb_csr_warl;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_types_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
 
     csr_addr_t address;
     xlen_t proposed_value;

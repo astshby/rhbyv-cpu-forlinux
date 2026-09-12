@@ -1,6 +1,10 @@
 // Module: tb_core_rv64i
 // Description: Runs RV64I W-operation, 64-bit shift, and LD/SD/LWU directed checks.
 module tb_core_rv64i;
+    // 显式时间声明避免 #5 依赖仿真器默认值；老式等价写法为 `timescale 1ns/1ps。
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_config_pkg::*;
     import rv_asm_pkg::*;
 
@@ -29,38 +33,39 @@ module tb_core_rv64i;
         end
         for (idx = 0; idx < 128; idx = idx + 1)
             dut.u_imem.mem[idx] = nop();
-        dut.u_imem.mem[0]  = enc_i(-1, 5'd0, 3'b000, 5'd1, 7'b0010011);
-        dut.u_imem.mem[1]  = enc_u(20'h80000, 5'd3, 7'b0110111);
-        dut.u_imem.mem[2]  = enc_i(1, 5'd3, 3'b000, 5'd4, 7'b0011011);
-        dut.u_imem.mem[3]  = enc_i(256, 5'd0, 3'b000, 5'd10, 7'b0010011);
-        dut.u_imem.mem[4]  = enc_s(0, 5'd4, 5'd10, 3'b011);
-        dut.u_imem.mem[5]  = enc_i(0, 5'd10, 3'b011, 5'd5, 7'b0000011);
-        dut.u_imem.mem[6]  = enc_b(64, 5'd4, 5'd5, 3'b001);
-        dut.u_imem.mem[7]  = enc_i(0, 5'd10, 3'b010, 5'd14, 7'b0000011);
-        dut.u_imem.mem[8]  = enc_b(56, 5'd4, 5'd14, 3'b001);
-        dut.u_imem.mem[9]  = enc_i(0, 5'd10, 3'b110, 5'd6, 7'b0000011);
-        dut.u_imem.mem[10] = enc_i(32, 5'd6, 3'b001, 5'd7, 7'b0010011);
-        dut.u_imem.mem[11] = enc_i(32, 5'd7, 3'b101, 5'd7, 7'b0010011);
-        dut.u_imem.mem[12] = enc_b(40, 5'd6, 5'd7, 3'b001);
-        dut.u_imem.mem[13] = enc_r(7'b0000000, 5'd4, 5'd4, 3'b000, 5'd8, 7'b0111011);
-        dut.u_imem.mem[14] = enc_i(2, 5'd0, 3'b000, 5'd9, 7'b0010011);
-        dut.u_imem.mem[15] = enc_b(28, 5'd9, 5'd8, 3'b001);
-        dut.u_imem.mem[16] = enc_r(7'b0100000, 5'd1, 5'd3, 3'b101, 5'd11, 7'b0111011);
-        dut.u_imem.mem[17] = enc_b(20, 5'd1, 5'd11, 3'b001);
-        dut.u_imem.mem[18] = enc_u(20'h10000, 5'd12, 7'b0110111);
-        dut.u_imem.mem[19] = enc_i(1, 5'd0, 3'b000, 5'd13, 7'b0010011);
-        dut.u_imem.mem[20] = enc_s(0, 5'd13, 5'd12, 3'b010);
-        dut.u_imem.mem[21] = enc_j(0, 5'd0);
-        dut.u_imem.mem[22] = enc_u(20'h10000, 5'd12, 7'b0110111);
-        dut.u_imem.mem[23] = enc_i(2, 5'd0, 3'b000, 5'd13, 7'b0010011);
-        dut.u_imem.mem[24] = enc_s(0, 5'd13, 5'd12, 3'b010);
-        dut.u_imem.mem[25] = enc_j(0, 5'd0);
+        dut.u_imem.mem[0]  = enc_addi(5'd1, 5'd0, -1);
+        dut.u_imem.mem[1]  = enc_lui(5'd3, 20'h80000);
+        dut.u_imem.mem[2]  = enc_addiw(5'd4, 5'd3, 1);
+        dut.u_imem.mem[3]  = enc_addi(5'd10, 5'd0, 256);
+        dut.u_imem.mem[4]  = enc_sd(5'd4, 5'd10, 0);
+        dut.u_imem.mem[5]  = enc_ld(5'd5, 5'd10, 0);
+        dut.u_imem.mem[6]  = enc_bne(5'd5, 5'd4, 64);
+        dut.u_imem.mem[7]  = enc_lw(5'd14, 5'd10, 0);
+        dut.u_imem.mem[8]  = enc_bne(5'd14, 5'd4, 56);
+        dut.u_imem.mem[9]  = enc_lwu(5'd6, 5'd10, 0);
+        dut.u_imem.mem[10] = enc_slli(5'd7, 5'd6, 32);
+        dut.u_imem.mem[11] = enc_srli(5'd7, 5'd7, 32);
+        dut.u_imem.mem[12] = enc_bne(5'd7, 5'd6, 40);
+        dut.u_imem.mem[13] = enc_addw(5'd8, 5'd4, 5'd4);
+        dut.u_imem.mem[14] = enc_addi(5'd9, 5'd0, 2);
+        dut.u_imem.mem[15] = enc_bne(5'd8, 5'd9, 28);
+        dut.u_imem.mem[16] = enc_sraw(5'd11, 5'd3, 5'd1);
+        dut.u_imem.mem[17] = enc_bne(5'd11, 5'd1, 20);
+        dut.u_imem.mem[18] = enc_lui(5'd12, 20'h10000);
+        dut.u_imem.mem[19] = enc_addi(5'd13, 5'd0, 1);
+        dut.u_imem.mem[20] = enc_sw(5'd13, 5'd12, 0);
+        dut.u_imem.mem[21] = enc_jal(5'd0, 0);
+        dut.u_imem.mem[22] = enc_lui(5'd12, 20'h10000);
+        dut.u_imem.mem[23] = enc_addi(5'd13, 5'd0, 2);
+        dut.u_imem.mem[24] = enc_sw(5'd13, 5'd12, 0);
+        dut.u_imem.mem[25] = enc_jal(5'd0, 0);
 
-        repeat (4) @(posedge clk);
+        repeat (4) @(posedge clk); // 保持复位跨过 4 个上升沿
+        @(negedge clk); // 在非采样边沿撤销复位，避免与 DUT 的 posedge always_ff 竞争
         rst = 1'b0;
         for (cycles = 0; cycles < 500; cycles = cycles + 1) begin
-            @(posedge clk);
-            if (commit_exception)
+            @(negedge clk); // 在上升沿更新完成且组合逻辑稳定后采样
+            if (commit_exception && commit_valid)
                 $fatal(1, "unexpected exception at pc=%h inst=%h", commit_pc, commit_inst);
             if (test_done) begin
                 assert (test_pass) else $fatal(1, "RV64 program failed code=%0d", test_code);

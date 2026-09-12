@@ -21,3 +21,8 @@ Tests requiring features beyond A4 are intentionally excluded: debug triggers
 (`breakpoint`), writable `misa`/C (`ma_fetch`), PMP, U/S modes, and Zicntr user
 aliases (`cycle`/`instret`). RV32 `instret_overflow` also requires the unplanned
 `minstreth` CSR; the applicable RV64 form is included.
+
+A4 currently handles synchronous machine-mode exceptions only. `mie`/`mip` and
+external, timer, or software interrupt delivery remain reserved for the later
+interrupt stage even though their architectural encodings already exist in
+`riscv_priv_pkg`.

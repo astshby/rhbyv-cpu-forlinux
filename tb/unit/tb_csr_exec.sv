@@ -1,6 +1,9 @@
 // Module: tb_csr_exec
 // Description: Checks all Zicsr atomic read-modify-write operations.
 module tb_csr_exec;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_types_pkg::*;
 
     csr_cmd_e command;

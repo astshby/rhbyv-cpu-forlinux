@@ -1,6 +1,9 @@
 // Module: tb_regfile
 // Description: Checks x0, synchronous writes, and explicit WB read-through.
 module tb_regfile;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_types_pkg::*;
 
     logic clk = 1'b0;

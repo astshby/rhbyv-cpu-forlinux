@@ -1,34 +1,34 @@
 // Module: csr_file
 // Description: Implements the minimal machine CSR state, counters, trap entry, and MRET state.
 module csr_file (
-    input  logic                        clk,
-    input  logic                        rst,
-    input  core_types_pkg::csr_addr_t  read_addr,
-    output core_types_pkg::xlen_t      read_data,
-    input  logic                        write_valid,
-    input  core_types_pkg::csr_addr_t  write_addr,
-    input  core_types_pkg::xlen_t      write_data,
-    input  logic                        retire_valid,
-    input  logic                        trap_enter,
-    input  core_types_pkg::xlen_t      trap_pc,
-    input  pipeline_pkg::exc_cause_e   trap_cause,
-    input  core_types_pkg::xlen_t      trap_tval,
-    input  logic                        mret_commit,
-    output core_types_pkg::xlen_t      mtvec,
-    output core_types_pkg::xlen_t      mepc
+    input  logic                         clk,
+    input  logic                         rst,
+    input  core_types_pkg::csr_addr_t   read_addr,
+    output core_types_pkg::xlen_t       read_data,
+    input  logic                         write_valid,
+    input  core_types_pkg::csr_addr_t   write_addr,
+    input  core_types_pkg::xlen_t       write_data,
+    input  logic                         retire_valid,
+    input  logic                         trap_enter,
+    input  core_types_pkg::xlen_t       trap_pc,
+    input  riscv_priv_pkg::exc_cause_e  trap_cause,
+    input  core_types_pkg::xlen_t       trap_tval,
+    input  logic                         mret_commit,
+    output core_types_pkg::xlen_t       mtvec,
+    output core_types_pkg::xlen_t       mepc
 );
     import core_config_pkg::*;
     import core_types_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
 
-    xlen_t mstatus_q;
-    xlen_t mtvec_q;
-    xlen_t mscratch_q;
-    xlen_t mepc_q;
-    xlen_t mcause_q;
-    xlen_t mtval_q;
-    xlen_t mcycle_q;
-    xlen_t minstret_q;
+    xlen_t mstatus_q, mstatus_d;
+    xlen_t mtvec_q, mtvec_d;
+    xlen_t mscratch_q, mscratch_d;
+    xlen_t mepc_q, mepc_d;
+    xlen_t mcause_q, mcause_d;
+    xlen_t mtval_q, mtval_d;
+    xlen_t mcycle_q, mcycle_d;
+    xlen_t minstret_q, minstret_d;
     xlen_t legal_write_data;
 
     function automatic xlen_t misa_value();
@@ -48,6 +48,7 @@ module csr_file (
         .legal_value(legal_write_data)
     );
 
+    // 1. CSR 读取：只暴露 A4 已实现的机器级状态和只读标识。
     always_comb begin
         unique case (read_addr)
             CSR_MSTATUS:  read_data = mstatus_q;
@@ -65,6 +66,59 @@ module csr_file (
         endcase
     end
 
+    // 2. Trap CSR 下一状态：普通 CSR 写 < MRET < trap，最老的 trap 优先级最高。
+    always_comb begin
+        mstatus_d = mstatus_q;
+        mtvec_d = mtvec_q;
+        mscratch_d = mscratch_q;
+        mepc_d = mepc_q;
+        mcause_d = mcause_q;
+        mtval_d = mtval_q;
+
+        if (write_valid) begin
+            unique case (write_addr)
+                CSR_MSTATUS:  mstatus_d = legal_write_data;
+                CSR_MTVEC:    mtvec_d = legal_write_data;
+                CSR_MSCRATCH: mscratch_d = legal_write_data;
+                CSR_MEPC:     mepc_d = legal_write_data;
+                CSR_MCAUSE:   mcause_d = legal_write_data;
+                CSR_MTVAL:    mtval_d = legal_write_data;
+                default: ;
+            endcase
+        end
+
+        if (mret_commit) begin
+            mstatus_d[MSTATUS_MIE_BIT] = mstatus_q[MSTATUS_MPIE_BIT];
+            mstatus_d[MSTATUS_MPIE_BIT] = 1'b1;
+            mstatus_d[MSTATUS_MPP_MSB:MSTATUS_MPP_LSB] = 2'b11;
+        end
+
+        if (trap_enter) begin
+            mepc_d = trap_pc & ~xlen_t'(3);
+            mcause_d = xlen_t'(trap_cause);
+            mtval_d = trap_tval;
+            mstatus_d[MSTATUS_MPIE_BIT] = mstatus_q[MSTATUS_MIE_BIT];
+            mstatus_d[MSTATUS_MIE_BIT] = 1'b0;
+            mstatus_d[MSTATUS_MPP_MSB:MSTATUS_MPP_LSB] = 2'b11;
+        end
+    end
+
+    // 3. 计数器下一状态：每拍增加 MCYCLE，只有正常退休才增加 MINSTRET；显式写入优先。
+    always_comb begin
+        mcycle_d = mcycle_q + xlen_t'(1);
+        minstret_d = minstret_q;
+        if (retire_valid)
+            minstret_d = minstret_q + xlen_t'(1);
+
+        if (write_valid) begin
+            if (write_addr == CSR_MCYCLE)
+                mcycle_d = legal_write_data;
+            if (write_addr == CSR_MINSTRET)
+                minstret_d = legal_write_data;
+        end
+    end
+
+    // 4. Trap 相关状态寄存器。
     always_ff @(posedge clk) begin
         if (rst) begin
             mstatus_q <= xlen_t'(32'h0000_1800);
@@ -73,41 +127,24 @@ module csr_file (
             mepc_q <= '0;
             mcause_q <= '0;
             mtval_q <= '0;
+        end else begin
+            mstatus_q <= mstatus_d;
+            mtvec_q <= mtvec_d;
+            mscratch_q <= mscratch_d;
+            mepc_q <= mepc_d;
+            mcause_q <= mcause_d;
+            mtval_q <= mtval_d;
+        end
+    end
+
+    // 5. 性能计数器独立保存，避免与 trap 状态混在同一时序块中。
+    always_ff @(posedge clk) begin
+        if (rst) begin
             mcycle_q <= '0;
             minstret_q <= '0;
         end else begin
-            mcycle_q <= mcycle_q + xlen_t'(1);
-            if (retire_valid)
-                minstret_q <= minstret_q + xlen_t'(1);
-
-            if (write_valid) begin
-                unique case (write_addr)
-                    CSR_MSTATUS:  mstatus_q <= legal_write_data;
-                    CSR_MTVEC:    mtvec_q <= legal_write_data;
-                    CSR_MSCRATCH: mscratch_q <= legal_write_data;
-                    CSR_MEPC:     mepc_q <= legal_write_data;
-                    CSR_MCAUSE:   mcause_q <= legal_write_data;
-                    CSR_MTVAL:    mtval_q <= legal_write_data;
-                    CSR_MCYCLE:   mcycle_q <= legal_write_data;
-                    CSR_MINSTRET: minstret_q <= legal_write_data;
-                    default: ;
-                endcase
-            end
-
-            if (mret_commit) begin
-                mstatus_q[3] <= mstatus_q[7];
-                mstatus_q[7] <= 1'b1;
-                mstatus_q[12:11] <= 2'b11;
-            end
-
-            if (trap_enter) begin
-                mepc_q <= trap_pc & ~xlen_t'(3);
-                mcause_q <= xlen_t'(trap_cause);
-                mtval_q <= trap_tval;
-                mstatus_q[7] <= mstatus_q[3];
-                mstatus_q[3] <= 1'b0;
-                mstatus_q[12:11] <= 2'b11;
-            end
+            mcycle_q <= mcycle_d;
+            minstret_q <= minstret_d;
         end
     end
 endmodule

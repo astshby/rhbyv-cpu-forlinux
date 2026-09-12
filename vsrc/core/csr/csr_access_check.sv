@@ -7,8 +7,9 @@ module csr_access_check (
     output logic                      read_only,
     output logic                      illegal
 );
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
 
+    // 当前 A4 只实现同步异常所需的机器级 CSR；MIE/MIP 留待中断阶段接入。
     always_comb begin
         unique case (address)
             CSR_MSTATUS, CSR_MISA, CSR_MTVEC, CSR_MSCRATCH, CSR_MEPC,

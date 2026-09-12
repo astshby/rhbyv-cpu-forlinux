@@ -8,6 +8,7 @@ module csr_exec (
 );
     import core_types_pkg::*;
 
+    // Zicsr 在一个组合块内完成“读旧值、按命令修改、产生新值”。
     always_comb begin
         unique case (command)
             CSR_RW:  new_value = operand;

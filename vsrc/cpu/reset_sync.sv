@@ -1,5 +1,6 @@
 // Module: reset_sync
 // Description: Two-flop synchronous release for an active-low board reset.
+// 硬件rst_n处理，每次按下按钮后多处理一个周期，防止需要rst没有接收信号
 module reset_sync (
     input  logic clk,
     input  logic reset_n,

@@ -1,10 +1,13 @@
 // Module: tb_csr_file
 // Description: Checks machine CSR state, counters, trap entry, and MRET state changes.
 module tb_csr_file;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_config_pkg::*;
     import core_types_pkg::*;
     import pipeline_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
 
     logic clk = 1'b0;
     logic rst = 1'b1;
@@ -31,7 +34,8 @@ module tb_csr_file;
         write_valid = 1'b1;
         write_addr = address;
         write_data = data;
-        @(posedge clk); #1;
+        @(posedge clk);
+        @(negedge clk);
         write_valid = 1'b0;
     endtask
 
@@ -65,34 +69,47 @@ module tb_csr_file;
 
         read_addr = CSR_MCYCLE; #1;
         cycle_before = read_data;
-        @(posedge clk); #1;
+        @(posedge clk);
+        @(negedge clk);
         assert (read_data > cycle_before) else $fatal(1, "MCYCLE increment");
 
         @(negedge clk);
         retire_valid = 1'b1;
-        @(posedge clk); #1;
+        @(posedge clk);
+        @(negedge clk);
         retire_valid = 1'b0;
         read_addr = CSR_MINSTRET; #1;
         assert (read_data == xlen_t'(1)) else $fatal(1, "MINSTRET increment");
+
+        // 先打开 MIE，验证 trap 保存到 MPIE，随后 MRET 能恢复原中断状态。
+        write_csr(CSR_MSTATUS, xlen_t'(32'h8));
+        read_addr = CSR_MSTATUS; #1;
+        assert (read_data[3] == 1'b1 && read_data[7] == 1'b0)
+            else $fatal(1, "MSTATUS writable interrupt state");
 
         @(negedge clk);
         trap_enter = 1'b1;
         trap_pc = xlen_t'(32'h207);
         trap_cause = EXC_LOAD_ADDR_MISALIGNED;
         trap_tval = xlen_t'(32'h43);
-        @(posedge clk); #1;
+        @(posedge clk);
+        @(negedge clk);
         trap_enter = 1'b0;
         assert (mepc == xlen_t'(32'h204)) else $fatal(1, "MEPC trap capture");
         read_addr = CSR_MCAUSE; #1;
         assert (read_data == xlen_t'(EXC_LOAD_ADDR_MISALIGNED)) else $fatal(1, "MCAUSE capture");
         read_addr = CSR_MTVAL; #1;
         assert (read_data == xlen_t'(32'h43)) else $fatal(1, "MTVAL capture");
-
-        mret_commit = 1'b1;
-        @(posedge clk); #1;
-        mret_commit = 1'b0;
         read_addr = CSR_MSTATUS; #1;
         assert (read_data[3] == 1'b0 && read_data[7] == 1'b1)
+            else $fatal(1, "trap interrupt state");
+
+        mret_commit = 1'b1;
+        @(posedge clk);
+        @(negedge clk);
+        mret_commit = 1'b0;
+        read_addr = CSR_MSTATUS; #1;
+        assert (read_data[3] == 1'b1 && read_data[7] == 1'b1)
             else $fatal(1, "MRET interrupt state");
         $display("PASS tb_csr_file RV%0d", XLEN);
         $finish;

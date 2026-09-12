@@ -1,8 +1,11 @@
 // Module: tb_core_trap
 // Description: Exercises precise synchronous traps and MRET recovery through a machine handler.
 module tb_core_trap;
+    timeunit 1ns;
+    timeprecision 1ps;
+
     import core_config_pkg::*;
-    import riscv_isa_pkg::*;
+    import riscv_priv_pkg::*;
     import rv_asm_pkg::*;
 
     logic clk = 1'b0;
@@ -27,50 +30,51 @@ module tb_core_trap;
     always_ff @(posedge clk) begin
         if (rst)
             exception_count <= 0;
-        else if (commit_exception)
+        else if (commit_valid && commit_exception)
             exception_count <= exception_count + 1;
     end
 
     initial begin
         for (idx = 0; idx < 128; idx = idx + 1)
             dut.u_imem.mem[idx] = nop();
-        dut.u_imem.mem[0]  = enc_i(16'h100, 5'd0, 3'b000, 5'd1, 7'b0010011);
-        dut.u_imem.mem[1]  = enc_csr(CSR_MTVEC, 5'd1, 3'b001, 5'd0);
-        dut.u_imem.mem[2]  = enc_i(0, 5'd0, 3'b000, 5'd20, 7'b0010011);
-        dut.u_imem.mem[3]  = enc_i(0, 5'd0, 3'b000, 5'd21, 7'b0010011);
-        dut.u_imem.mem[4]  = 32'h0000_0073;
-        dut.u_imem.mem[5]  = 32'h0010_0073;
+        dut.u_imem.mem[0]  = enc_addi(5'd1, 5'd0, 16'h100);
+        dut.u_imem.mem[1]  = enc_csrrw(5'd0, CSR_MTVEC, 5'd1);
+        dut.u_imem.mem[2]  = enc_addi(5'd20, 5'd0, 0);
+        dut.u_imem.mem[3]  = enc_addi(5'd21, 5'd0, 0);
+        dut.u_imem.mem[4]  = enc_ecall();
+        dut.u_imem.mem[5]  = enc_ebreak();
         dut.u_imem.mem[6]  = 32'hffff_ffff;
-        dut.u_imem.mem[7]  = enc_csr(CSR_MISA, 5'd0, 3'b001, 5'd0);
-        dut.u_imem.mem[8]  = enc_i(1, 5'd0, 3'b010, 5'd2, 7'b0000011);
-        dut.u_imem.mem[9]  = enc_s(2, 5'd0, 5'd0, 3'b010);
-        dut.u_imem.mem[10] = enc_j(2, 5'd0);
-        dut.u_imem.mem[11] = enc_i(7, 5'd0, 3'b000, 5'd22, 7'b0010011);
-        dut.u_imem.mem[12] = enc_b(28, 5'd22, 5'd20, 3'b001);
-        dut.u_imem.mem[13] = enc_i(28, 5'd0, 3'b000, 5'd22, 7'b0010011);
-        dut.u_imem.mem[14] = enc_b(20, 5'd22, 5'd21, 3'b001);
-        dut.u_imem.mem[15] = enc_u(20'h10000, 5'd23, 7'b0110111);
-        dut.u_imem.mem[16] = enc_i(1, 5'd0, 3'b000, 5'd24, 7'b0010011);
-        dut.u_imem.mem[17] = enc_s(0, 5'd24, 5'd23, 3'b010);
-        dut.u_imem.mem[18] = enc_j(0, 5'd0);
-        dut.u_imem.mem[19] = enc_u(20'h10000, 5'd23, 7'b0110111);
-        dut.u_imem.mem[20] = enc_i(2, 5'd0, 3'b000, 5'd24, 7'b0010011);
-        dut.u_imem.mem[21] = enc_s(0, 5'd24, 5'd23, 3'b010);
-        dut.u_imem.mem[22] = enc_j(0, 5'd0);
+        dut.u_imem.mem[7]  = enc_csrrw(5'd0, CSR_MISA, 5'd0);
+        dut.u_imem.mem[8]  = enc_lw(5'd2, 5'd0, 1);
+        dut.u_imem.mem[9]  = enc_sw(5'd0, 5'd0, 2);
+        dut.u_imem.mem[10] = enc_jal(5'd0, 2);
+        dut.u_imem.mem[11] = enc_addi(5'd22, 5'd0, 7);
+        dut.u_imem.mem[12] = enc_bne(5'd20, 5'd22, 28);
+        dut.u_imem.mem[13] = enc_addi(5'd22, 5'd0, 28);
+        dut.u_imem.mem[14] = enc_bne(5'd21, 5'd22, 20);
+        dut.u_imem.mem[15] = enc_lui(5'd23, 20'h10000);
+        dut.u_imem.mem[16] = enc_addi(5'd24, 5'd0, 1);
+        dut.u_imem.mem[17] = enc_sw(5'd24, 5'd23, 0);
+        dut.u_imem.mem[18] = enc_jal(5'd0, 0);
+        dut.u_imem.mem[19] = enc_lui(5'd23, 20'h10000);
+        dut.u_imem.mem[20] = enc_addi(5'd24, 5'd0, 2);
+        dut.u_imem.mem[21] = enc_sw(5'd24, 5'd23, 0);
+        dut.u_imem.mem[22] = enc_jal(5'd0, 0);
 
-        dut.u_imem.mem[64] = enc_csr(CSR_MCAUSE, 5'd0, 3'b010, 5'd10);
-        dut.u_imem.mem[65] = enc_r(7'b0, 5'd10, 5'd21, 3'b000, 5'd21, 7'b0110011);
-        dut.u_imem.mem[66] = enc_csr(CSR_MEPC, 5'd0, 3'b010, 5'd11);
-        dut.u_imem.mem[67] = enc_i(4, 5'd11, 3'b000, 5'd11, 7'b0010011);
-        dut.u_imem.mem[68] = enc_csr(CSR_MEPC, 5'd11, 3'b001, 5'd0);
-        dut.u_imem.mem[69] = enc_i(1, 5'd20, 3'b000, 5'd20, 7'b0010011);
-        dut.u_imem.mem[70] = 32'h3020_0073;
+        dut.u_imem.mem[64] = enc_csrrs(5'd10, CSR_MCAUSE, 5'd0);
+        dut.u_imem.mem[65] = enc_add(5'd21, 5'd21, 5'd10);
+        dut.u_imem.mem[66] = enc_csrrs(5'd11, CSR_MEPC, 5'd0);
+        dut.u_imem.mem[67] = enc_addi(5'd11, 5'd11, 4);
+        dut.u_imem.mem[68] = enc_csrrw(5'd0, CSR_MEPC, 5'd11);
+        dut.u_imem.mem[69] = enc_addi(5'd20, 5'd20, 1);
+        dut.u_imem.mem[70] = enc_mret();
 
         repeat (4) @(posedge clk);
         @(negedge clk);
         rst = 1'b0;
         for (cycles = 0; cycles < 1600; cycles = cycles + 1) begin
-            @(posedge clk);
+            // 下降沿采样，避开 DUT 在上升沿通过非阻塞赋值更新状态的调度竞争。
+            @(negedge clk);
             if (test_done) begin
                 assert (test_pass) else $fatal(1, "trap program failed code=%0d", test_code);
                 assert (exception_count == 7)
