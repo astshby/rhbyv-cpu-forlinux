@@ -37,6 +37,7 @@ module alu (
     end
 
     // RV64I W 类运算固定使用低 32 位和 5-bit shamt。
+    // 本质上xlen=64就要新添加一个计算32位的结果的alu
     always_comb begin
         word_shamt = operand_b[4:0];
         unique case (operation)

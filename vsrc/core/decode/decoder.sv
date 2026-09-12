@@ -93,7 +93,10 @@ module decoder (
                     F3_LOAD_LB:  begin uop.mem_size = MEM_BYTE; uop.illegal = 1'b0; end
                     F3_LOAD_LH:  begin uop.mem_size = MEM_HALF; uop.illegal = 1'b0; end
                     F3_LOAD_LW:  begin uop.mem_size = MEM_WORD; uop.illegal = 1'b0; end
-                    F3_LOAD_LD:  if (XLEN == 64) begin uop.mem_size = MEM_DWORD; uop.illegal = 1'b0; end
+                    F3_LOAD_LD:  if (XLEN == 64) begin  // 64XLEN才会出现
+                        uop.mem_size = MEM_DWORD;
+                        uop.illegal = 1'b0;
+                    end
                     F3_LOAD_LBU: begin uop.mem_size = MEM_BYTE; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
                     F3_LOAD_LHU: begin uop.mem_size = MEM_HALF; uop.load_unsigned = 1'b1; uop.illegal = 1'b0; end
                     F3_LOAD_LWU: if (XLEN == 64) begin
@@ -135,6 +138,7 @@ module decoder (
                     F3_OP_IMM_ORI:   begin uop.alu_op = ALU_OR;   uop.illegal = 1'b0; end
                     F3_OP_IMM_ANDI:  begin uop.alu_op = ALU_AND;  uop.illegal = 1'b0; end
                     F3_OP_IMM_SLLI: begin
+                        // imm的32/64由于位移位数的不同产生里funct7与funct6的区别
                         if (((XLEN == 32) && (funct7 == F7_OP_IMM_SLLI)) ||
                             ((XLEN == 64) && (inst[31:26] == F6_OP_IMM_SLLI))) begin
                             uop.alu_op = ALU_SLL;

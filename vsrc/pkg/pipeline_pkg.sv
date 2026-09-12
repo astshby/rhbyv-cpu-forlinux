@@ -16,9 +16,9 @@ package pipeline_pkg;
     // 流水线必备，与btb与预测有关
     // if阶段必须传递的预测信息
     typedef struct packed {
-        logic                  hit; //btb命中
-        logic                  taken; //pht是否采用
-        xlen_t                 target; //btb给出的分支目标
+        logic                  hit; //btb命中(valid && tag==pc)
+        logic                  taken; //pht是否采用(pht[pc^ghr]的高位)
+        xlen_t                 target; //btb给出的分支目标(条件分支需要：hit && taken 判定，J指令仅仅要hit)
         logic [BTB_IDX_W-1:0]  btb_idx; //btb索引
         logic [PHT_IDX_W-1:0]  pht_idx; //pht索引
     } pred_info_t;

@@ -94,15 +94,7 @@ module core (
         wb_redirect = '0;
     end
 
-    // 一些控制信号
-    always_comb begin
-        // fetch_ready:只要不停顿都可以收
-        fetch_ready = (pipeline_actions.if_d1 != PIPE_HOLD);
-        // WB 等响应或正在执行重定向时，禁止 MEM 发出请求。
-        mem_issue_enable = !wb_wait && !wb_redirect.valid;
-    end
-
-    // 只有流水级真正推进时才允许训练，避免停顿包重复更新或错误路径更新。
+    // 预测器需要的更新信息，只有流水级真正推进时才允许训练，避免停顿包重复更新或错误路径更新。
     always_comb begin
         d1_stage_advance = if_d1_q.valid &&
                            (pipeline_actions.d1_d2 == PIPE_ADVANCE);
@@ -114,14 +106,6 @@ module core (
         ex_update.valid = ex_update_raw.valid && ex_stage_advance;
     end
 
-    predictor u_predictor (
-        .clk,
-        .rst,
-        .lookup_pc(imem_req_addr),
-        .prediction,
-        .update(predictor_update)
-    );
-
     predictor_update_arbiter u_predictor_update_arbiter (
         .clk,
         .rst,
@@ -130,6 +114,31 @@ module core (
         .update(predictor_update),
         .overflow(predictor_overflow)
     );
+
+    predictor u_predictor (
+        .clk,
+        .rst,
+        .lookup_pc(imem_req_addr),
+        .prediction,
+        .update(predictor_update)
+    );
+
+    // 更新端口持续过载表示预测器丢失了一次训练，只在仿真中报错。
+`ifndef SYNTHESIS
+    always_ff @(posedge clk) begin
+        if (!rst)
+            assert (!predictor_overflow)
+                else $error("predictor update pending buffer overflow");
+    end
+`endif
+
+    // IF,MEM需要的imem，dmem控制信号
+    always_comb begin
+        // fetch_ready:只要不停顿都可以收
+        fetch_ready = (pipeline_actions.if_d1 != PIPE_HOLD);
+        // WB 等响应或正在执行重定向时，禁止 MEM 发出请求。
+        mem_issue_enable = !wb_wait && !wb_redirect.valid;
+    end
 
     // 各功能单元连线,连线后的包经过valid修改才交给流水级寄存器
     if_stage u_if_stage (
@@ -283,12 +292,4 @@ module core (
             mem_wb_q <= mem_packet;
     end
 
-    // 更新端口持续过载表示预测器丢失了一次训练，只在仿真中报错。
-`ifndef SYNTHESIS
-    always_ff @(posedge clk) begin
-        if (!rst)
-            assert (!predictor_overflow)
-                else $error("predictor update pending buffer overflow");
-    end
-`endif
 endmodule

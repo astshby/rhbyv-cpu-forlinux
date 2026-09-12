@@ -120,3 +120,17 @@ A1 及以后阶段的 decoder、异常检测和串行化条件需要分别改为
 - 两种位宽的 cache wait 均为 11 周期，load pipeline 均为 18 周期。
 - 两种位宽的预测整核测试均执行 21 次分支、产生 7 次重定向。
 - RV32I 整核测试 32 周期通过；RV64I 整核测试 28 周期通过，非适用位宽均明确报告 SKIP。
+
+## 2026-09-12（Asia/Shanghai）— A3 审核版本检查点
+
+### 固化范围
+
+- 以用户审核和调整后的 A3 工作区为后续 A4 合并基线，不回退模块顺序、功能分块或中文注释。
+- 保留 Core、Decoder、ALU、BTB、GShare、IF、Predictor、预测更新仲裁、Store 及 package 中的审核修改。
+- 仅清理 6 处行尾空格，不改变 RTL 行为；未跟踪的 `README.md` 与 `riscv-tests/` 不纳入提交。
+
+### 验证
+
+- `make lint XLEN=32`、`make lint XLEN=64` 通过。
+- `make unit XLEN=32`、`make unit XLEN=64` 各 21 项全部通过。
+- `make directed XLEN=32`、`make directed XLEN=64` 全部通过；cache wait、load pipeline、预测器和两种位宽整核行为均保持原结果。

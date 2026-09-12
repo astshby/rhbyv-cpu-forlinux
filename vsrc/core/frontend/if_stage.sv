@@ -31,7 +31,8 @@ module if_stage (
     logic response_usable;
     logic request_fire;
 
-    // 1. imem：req_valid与rsp_ready 由 IF 发出，其余由 IMEM/Cache 返回。
+    // 组合逻辑
+    // imem：req_valid与rsp_ready 由 IF 发出，其余由 IMEM/Cache 返回。
     always_comb begin
         // response_fire 是respose响应后的信号，request_fire是request请求握手后的结果
         imem_req_valid = fetch_enable && !redirect.valid &&
@@ -42,7 +43,7 @@ module if_stage (
                          (request_killed_q || redirect.valid || response_can_buffer);
     end
 
-    // 2. 握手与响应：buffer 空闲、即将出队或响应已被 kill 时都可以接收。response_packet.valid重赋值
+    // 握手与响应：buffer 空闲、即将出队或响应已被 kill 时都可以接收。response_packet.valid重赋值
     always_comb begin
         response_can_buffer = !buffer_q.valid || out_ready;
         request_fire = imem_req_valid && imem_req_ready;
@@ -53,7 +54,7 @@ module if_stage (
         response_packet.valid = response_usable;
     end
 
-    // 3. 输出选择：buffer 优先，否则允许新响应直接送往 D1。
+    // 输出选择：buffer 优先，否则允许新响应直接送往 D1。
     always_comb begin
         out_packet = buffer_q;
         if (!buffer_q.valid)
@@ -63,7 +64,8 @@ module if_stage (
             out_packet.valid = 1'b0;
     end
 
-    // 4. PC 状态：只有请求真正被接受后才推进；redirect 优先切换取指地址。
+    // 时序逻辑
+    // PC 状态：只有请求真正被接受后才推进；redirect 优先切换取指地址。
     always_ff @(posedge clk) begin
         if (rst) pc_q <= RESET_VECTOR;
         else if (redirect.valid) pc_q <= redirect.pc;
@@ -71,7 +73,7 @@ module if_stage (
             pc_q <= prediction.taken ? prediction.target : pc_q + xlen_t'(4);
     end
 
-    // 5. request处理：响应完成时释放旧槽，同拍可保存下一笔请求。
+    // request处理：响应完成时释放旧槽，同拍可保存下一笔请求。
     always_ff @(posedge clk) begin
         if (rst) begin
             request_q <= '0;
@@ -103,7 +105,7 @@ module if_stage (
         end
     end
 
-    // 6. buffer处理：覆盖“旧包出队且新响应同拍到达”的连续传输情况。(buffer out_ready的四种情况)
+    // buffer处理：覆盖“旧包出队且新响应同拍到达”的连续传输情况。(buffer out_ready的四种情况)
     // 处理b1q1与b0q0，b1q0不变，b0q1直接buffer_can_buffer取出(此时req要有效)
     always_ff @(posedge clk) begin
         if (rst || redirect.valid)

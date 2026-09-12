@@ -57,7 +57,9 @@ package riscv_unpriv_pkg;
     localparam logic [2:0] F3_OP_OR            = 3'b110;
     localparam logic [2:0] F3_OP_AND           = 3'b111;
 
-    // RV64I 的 W 类指令只计算低 32 位，并将结果符号扩展到 XLEN。
+    // RV64I 的 W 类指令只计算低 32 位，并将结果符号扩展到 XLEN（和原来的区别仅仅是opcode）
+    // 从64角度讲，扩展都是取32的，有：R：addw，subw，sllw，srlw，sraw，
+    // I：addiw，slliw，srliw，sraiw，L：lwu，ld，sd
     localparam logic [2:0] F3_OP_IMM_32_ADDIW      = 3'b000;
     localparam logic [2:0] F3_OP_IMM_32_SLLIW      = 3'b001;
     localparam logic [2:0] F3_OP_IMM_32_SRLIW_SRAIW = 3'b101;
@@ -81,7 +83,7 @@ package riscv_unpriv_pkg;
     localparam logic [6:0] F7_OP_BASE          = 7'b0000000;
     localparam logic [6:0] F7_OP_SUB_SRA       = 7'b0100000;
     localparam logic [6:0] F7_OP_MULDIV        = 7'b0000001;
-    // XLEN 位移在 RV32 检查 funct7，在 RV64 检查 funct6，避免误判合法的 shamt[5]。
+    // XLEN 位移在 RV32 检查 funct7，在 RV64 检查 funct6，避免误判合法的 shamt[5](多一位位移)
     localparam logic [6:0] F7_OP_IMM_SLLI      = 7'b0000000;
     localparam logic [6:0] F7_OP_IMM_SRLI      = 7'b0000000;
     localparam logic [6:0] F7_OP_IMM_SRAI      = 7'b0100000;

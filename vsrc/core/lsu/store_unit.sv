@@ -19,10 +19,10 @@ module store_unit (
     // 注意：写入得bus_wstrb必须与地址对齐，所以需要左移，由于数据都是低位写入，所以也要对齐
     always_comb begin
         unique case (size)
-            MEM_BYTE:  base_strobe = DBUS_BYTES'(1); //0001
-            MEM_HALF:  base_strobe = DBUS_BYTES'(3); //0011
-            MEM_WORD:  base_strobe = DBUS_BYTES'(15); //1111
-            default:   base_strobe = '1;
+            MEM_BYTE:  base_strobe = DBUS_BYTES'(1); //0001 / 00000001
+            MEM_HALF:  base_strobe = DBUS_BYTES'(3); //0011 / 00000011
+            MEM_WORD:  base_strobe = DBUS_BYTES'(15); //1111 / 00001111
+            default:   base_strobe = '1; // 1111 / 11111111
         endcase
         bus_wstrb = base_strobe << address[OFFSET_W-1:0];
         bus_wdata = store_data << (8 * address[OFFSET_W-1:0]);
