@@ -17,7 +17,7 @@ Core 使用独立的指令和数据 ready/valid 接口，不直接实例化 FPGA
 - JAL 在 D1 解析；条件分支与 JALR 在 EX 解析。
 - CSR 在 EX 完成读改写与 WARL，WB 执行架构提交。
 - Verilator 纯 SystemVerilog 测试，不使用 Cocotb。
-- RV32/RV64 各 31 项单元测试和 9 项整核定向流程完成；非适用位宽用例明确 SKIP。
+- RV32/RV64 各 31 项单元测试和 10 项整核定向流程完成；非适用位宽用例明确 SKIP。
 - 适用的 riscv-tests：RV32 `50/50`，RV64 `65/65`；Zifencei 与未对齐直接完成用例明确 SKIP。
 - CoreMark 1.0 performance/validation CRC 均通过；无 M 扩展时 RV32 为
   `0.986718 CoreMark/MHz`，RV64 为 `0.833029 CoreMark/MHz`。

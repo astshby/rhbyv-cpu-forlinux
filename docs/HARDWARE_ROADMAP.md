@@ -59,7 +59,7 @@ ready-valid 存储器协议。
 | `trap_controller` | 由最老 commit 产生 Trap/MRET 状态与重定向 |
 | `hazard_unit` | 判断数据尚不可用的 load-use 依赖 |
 | `pipeline_ctrl` | 按指令年龄仲裁 HOLD/CLEAR/ADVANCE 和 redirect |
-| `serialize_controller` | 异常/MRET 从发现到 WB 重定向期间停止年轻取指 |
+| `serialize_controller` | 异常/MRET 排空时停止取指，并区分 WB 完成与较老控制流取消 |
 | `core` | 模块连接和级间寄存器，不吸收功能单元实现 |
 
 ## 阶段 A

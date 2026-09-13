@@ -8,6 +8,7 @@ module tb_serialize_controller;
     logic rst = 1'b1;
     logic serialize_start;
     logic serialize_complete;
+    logic serialize_cancel;
     logic frontend_flush;
     logic fetch_request_enable;
 
@@ -18,6 +19,7 @@ module tb_serialize_controller;
     initial begin
         serialize_start = 1'b0;
         serialize_complete = 1'b0;
+        serialize_cancel = 1'b0;
 
         repeat (2) @(posedge clk);
         @(negedge clk);
@@ -38,7 +40,7 @@ module tb_serialize_controller;
         assert (!frontend_flush && !fetch_request_enable)
             else $fatal(1, "serialization pending hold");
 
-        // WB 完成或更老重定向清除 pending；当拍仍不提前发出新请求。
+        // WB 正常完成序列化并清除 pending；当拍仍不提前发出新请求。
         serialize_complete = 1'b1;
         #1;
         assert (!frontend_flush && !fetch_request_enable)
@@ -50,19 +52,36 @@ module tb_serialize_controller;
         assert (!frontend_flush && fetch_request_enable)
             else $fatal(1, "fetch resumes after completion");
 
-        // 同时事件按更老的重定向处理，不留下 pending 状态。
+        // 重新建立 pending，验证更老控制流走独立的 cancel 端口。
         serialize_start = 1'b1;
-        serialize_complete = 1'b1;
         #1;
-        assert (!frontend_flush && !fetch_request_enable)
-            else $fatal(1, "completion priority");
         @(posedge clk);
         @(negedge clk);
         serialize_start = 1'b0;
-        serialize_complete = 1'b0;
+        serialize_cancel = 1'b1;
+        #1;
+        assert (!frontend_flush && !fetch_request_enable)
+            else $fatal(1, "serialization cancellation cycle");
+        @(posedge clk);
+        @(negedge clk);
+        serialize_cancel = 1'b0;
         #1;
         assert (fetch_request_enable)
-            else $fatal(1, "completion priority cleared pending");
+            else $fatal(1, "fetch resumes after cancellation");
+
+        // 同时开始与取消按更老控制流处理，不留下 pending 状态。
+        serialize_start = 1'b1;
+        serialize_cancel = 1'b1;
+        #1;
+        assert (!frontend_flush && !fetch_request_enable)
+            else $fatal(1, "cancellation priority");
+        @(posedge clk);
+        @(negedge clk);
+        serialize_start = 1'b0;
+        serialize_cancel = 1'b0;
+        #1;
+        assert (fetch_request_enable)
+            else $fatal(1, "cancellation priority cleared pending");
 
         $display("PASS tb_serialize_controller");
         $finish;

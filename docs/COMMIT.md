@@ -267,3 +267,28 @@ A4 只实现机器模式同步异常。`mie/mip` 及软件、定时器、外部�
   12,004,387 ticks、`0.833029 CoreMark/MHz`。
 - vendor 文件逐字节匹配上游 `v1.01`，四个新增 runner 通过 `bash -n`，`git diff --check`
   通过。Vivado、真实 Fmax、utilization 与上板 CoreMark 未执行，留待 A6。
+
+## 2026-09-13（Asia/Shanghai）— 拆分序列化完成与取消通道
+
+### 关键修改
+
+- 将 `serialize_controller.serialize_complete` 恢复为单一含义：只表示 WB Trap/MRET
+  完成自身序列化；新增 `serialize_cancel`，明确表示 D1/EX 较老控制流重定向杀死了
+  错误路径上的年轻序列化事件。
+- Core 分别连接 `wb_redirect.valid` 与“最终选中且非 WB”的重定向，不再用一个名为
+  complete 的端口混合两种原因；控制器内部仍让释放事件优先于同拍开始事件。
+- 扩充控制器单元测试，分别验证正常完成、错误路径取消和同时开始/取消的优先级。
+- 新增 Taken Branch 后紧跟非法顺序路径的整核测试，与既有 JALR 用例共同覆盖两类
+  EX 重定向取消场景。
+
+### 验证结果
+
+- `make unit XLEN=32/64` 各 31 项全部通过。
+- `make directed XLEN=32/64` 各执行 10 项：9 项 PASS，另一位宽 ISA 用例明确 SKIP；
+  Branch 取消用例两种位宽均为 12 周期，JALR 取消用例仍为 18 周期。
+- RV32/RV64 的 core、`sim_cpu_top`、`cpu_top` lint 均通过。
+- `make riscv-tests XLEN=32` 保持 `50/50`，RV64 保持 `65/65`；既定的 `fence_i` 与
+  `ma_data` 仍明确 SKIP。
+- C smoke 保持 RV32 3945 周期、RV64 2494 周期。
+- CoreMark performance/validation CRC 均通过，周期和成绩不变：RV32
+  `0.986718 CoreMark/MHz`，RV64 `0.833029 CoreMark/MHz`。

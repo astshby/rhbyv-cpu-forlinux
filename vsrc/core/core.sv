@@ -146,12 +146,13 @@ module core (
 `endif
 
     // 各功能单元与流水级连线。
-    // 异常序列化处理开始时清除年轻取指，并持续停取指直到 WB Trap/MRET 重定向。
+    // WB Trap/MRET 正常完成序列化；更老的 D1/EX 控制流重定向取消错误路径序列化。
     serialize_controller u_serialize_controller (
         .clk,
         .rst,
         .serialize_start,
-        .serialize_complete(selected_redirect.valid),
+        .serialize_complete(wb_redirect.valid),
+        .serialize_cancel(selected_redirect.valid && !wb_redirect.valid), // 更老的重定向就能清除
         .frontend_flush,
         .fetch_request_enable
     );
