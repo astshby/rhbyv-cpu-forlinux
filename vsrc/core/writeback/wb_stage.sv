@@ -6,10 +6,9 @@ module wb_stage (
     input  logic                        dmem_rsp_valid,
     input  core_types_pkg::xlen_t       dmem_rsp_rdata,
     output logic                        dmem_rsp_ready,
-    output logic                        wait_for_response,
-    output logic                        gpr_write_enable,   //给regfile的数据数据
-    output core_types_pkg::gpr_addr_t   gpr_write_addr,
-    output core_types_pkg::xlen_t       gpr_write_data,
+    output logic                        wait_for_response, //等待load响应
+    output pipeline_pkg::gpr_forward_t  gpr_write, // GPR 写口同时作为 WB 前递来源
+    output pipeline_pkg::csr_forward_t  csr_write, // 已完整且无异常的 CSR 提交通道
     output logic                        commit_valid,
     output core_types_pkg::xlen_t       commit_pc,
     output logic [31:0]                 commit_inst,
@@ -46,7 +45,6 @@ module wb_stage (
         packet_complete = !load_response_needed || response_fire;
     end
 
-
     // WB写回，GPR 写口同时作为 WB 前递来源；x0 不产生真实写入。
     always_comb begin
         unique case (in_packet.uop.wb_sel)
@@ -56,11 +54,19 @@ module wb_stage (
             default:   writeback_data = in_packet.result;
         endcase
 
-        gpr_write_enable = in_packet.valid && packet_complete &&
-                           in_packet.uop.gpr_write && (in_packet.rd != '0) &&
-                           !in_packet.exc.valid && !in_packet.uop.illegal;
-        gpr_write_addr = in_packet.rd;
-        gpr_write_data = writeback_data;
+        gpr_write.valid = in_packet.valid && packet_complete &&
+                          in_packet.uop.gpr_write && (in_packet.rd != '0) &&
+                          !in_packet.exc.valid && !in_packet.uop.illegal;
+        gpr_write.addr = in_packet.rd;
+        gpr_write.data = writeback_data;
+    end
+
+    // CSR 只有在 WB 包完整且无异常时提交，地址和值直接来自流水包。
+    always_comb begin
+        csr_write.valid = in_packet.valid && packet_complete && in_packet.csr_we &&
+                          !in_packet.exc.valid && !in_packet.uop.illegal;
+        csr_write.addr = in_packet.csr_addr;
+        csr_write.data = in_packet.csr_new;
     end
 
     // commit 仅在指令及其所需响应完整时产生。
@@ -69,7 +75,7 @@ module wb_stage (
         commit_pc = in_packet.pc;
         commit_inst = in_packet.inst;
         commit_rd = in_packet.rd;
-        commit_rd_we = gpr_write_enable;
+        commit_rd_we = gpr_write.valid;
         commit_rd_data = writeback_data;
         commit_exception = commit_valid &&
                            (in_packet.exc.valid || in_packet.uop.illegal);

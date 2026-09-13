@@ -3,7 +3,7 @@
 module csr_exec (
     input  core_types_pkg::csr_cmd_e command,
     input  core_types_pkg::xlen_t   old_value,
-    input  core_types_pkg::xlen_t   operand,
+    input  core_types_pkg::xlen_t   operand,  //立即数/寄存器值
     output core_types_pkg::xlen_t   new_value
 );
     import core_types_pkg::*;

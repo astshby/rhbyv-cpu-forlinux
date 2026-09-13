@@ -7,15 +7,15 @@ module tb_wb_stage;
     import core_config_pkg::*;
     import core_types_pkg::*;
     import pipeline_pkg::*;
+    import riscv_priv_pkg::*;
 
     mem_wb_t in_packet;
     logic dmem_rsp_valid;
     xlen_t dmem_rsp_rdata;
     logic dmem_rsp_ready;
     logic wait_for_response;
-    logic gpr_write_enable;
-    gpr_addr_t gpr_write_addr;
-    xlen_t gpr_write_data;
+    gpr_forward_t gpr_write;
+    csr_forward_t csr_write;
     logic commit_valid;
     xlen_t commit_pc;
     logic [31:0] commit_inst;
@@ -40,10 +40,20 @@ module tb_wb_stage;
         #1;
         assert (!wait_for_response && !dmem_rsp_ready)
             else $fatal(1, "ALU writeback waited for memory");
-        assert (commit_valid && gpr_write_enable && gpr_write_data == xlen_t'(123))
+        assert (commit_valid && gpr_write.valid && gpr_write.data == xlen_t'(123))
             else $fatal(1, "ALU writeback");
 
+        // WB 为无异常且完整的 CSR 包产生一次架构写入。
+        in_packet.csr_we = 1'b1;
+        in_packet.csr_addr = CSR_MSCRATCH;
+        in_packet.csr_new = xlen_t'(32'h1234);
+        #1;
+        assert (csr_write.valid && csr_write.addr == CSR_MSCRATCH &&
+                csr_write.data == xlen_t'(32'h1234))
+            else $fatal(1, "CSR commit channel");
+
         // load 元数据先到 WB，响应未到时必须保持流水线。
+        in_packet.csr_we = 1'b0;
         in_packet.result = xlen_t'(1);
         in_packet.uop.mem_read = 1'b1;
         in_packet.uop.mem_size = MEM_BYTE;
@@ -51,21 +61,21 @@ module tb_wb_stage;
         #1;
         assert (wait_for_response && dmem_rsp_ready)
             else $fatal(1, "WB must wait for load response");
-        assert (!commit_valid && !gpr_write_enable)
+        assert (!commit_valid && !gpr_write.valid && !csr_write.valid)
             else $fatal(1, "incomplete load committed");
 
         // 地址低位 1 选择第二个 byte，0x80 按 LB 符号扩展。
         dmem_rsp_valid = 1'b1;
         dmem_rsp_rdata = xlen_t'(32'h0000_8000);
         #1;
-        assert (!wait_for_response && commit_valid && gpr_write_enable)
+        assert (!wait_for_response && commit_valid && gpr_write.valid)
             else $fatal(1, "completed load writeback");
-        assert (gpr_write_data == xlen_t'(-128))
+        assert (gpr_write.data == xlen_t'(-128))
             else $fatal(1, "signed load formatting in WB");
 
         in_packet.uop.load_unsigned = 1'b1;
         #1;
-        assert (gpr_write_data == xlen_t'(128))
+        assert (gpr_write.data == xlen_t'(128))
             else $fatal(1, "unsigned load formatting in WB");
 
         // 异常 load 没有真实请求，因此不等待响应，只提交异常信息。
@@ -74,7 +84,7 @@ module tb_wb_stage;
         #1;
         assert (!wait_for_response && !dmem_rsp_ready && commit_valid)
             else $fatal(1, "faulting load response handling");
-        assert (!gpr_write_enable && commit_exception)
+        assert (!gpr_write.valid && !csr_write.valid && commit_exception)
             else $fatal(1, "faulting load architectural effects");
 
         $display("PASS tb_wb_stage RV%0d", XLEN);

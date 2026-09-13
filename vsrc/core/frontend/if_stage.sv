@@ -1,11 +1,12 @@
 // Module: if_stage
 // Description: Issues ordered fetch requests, buffers responses, and kills redirected paths.
+// if阶段模块：发出有序的取指请求，缓冲响应，并在重定向时丢弃旧路径。
 module if_stage (
     input  logic                              clk,
     input  logic                              rst,
-    input  logic                              fetch_enable, // 关闭时停止新请求，不影响已经返回的指令
+    input  logic                              fetch_request_enable, // IF 是否可以发出新请求（用于 ECALL、EBREAK、MRET）
     input  logic                              out_ready, // D1 可以接收 out_packet
-    input  logic                              flush, // 序列化清除年轻取指，但不直接修改 PC
+    input  logic                              flush, // 序列化清除取指，但不直接修改 PC
     input  pipeline_pkg::redirect_t           redirect,
     input  pipeline_pkg::pred_info_t          prediction,
     output pipeline_pkg::if_d1_t              out_packet,
@@ -32,10 +33,11 @@ module if_stage (
     logic response_usable;
     logic request_fire;
 
-    // 1. IMEM 请求与响应接口：req_valid/rsp_ready 由 IF 发出，其余由 IMEM/Cache 返回。
+    // 组合部分
+    // IMEM 请求与响应接口：req_valid/rsp_ready 由 IF 发出，其余由 IMEM/Cache 返回。
     always_comb begin
         // response_fire 是 response 响应握手，request_fire 是 request 请求握手。
-        imem_req_valid = fetch_enable && !redirect.valid && !flush &&
+        imem_req_valid = fetch_request_enable && !redirect.valid && !flush &&
                          (!request_q.valid || response_fire);
         imem_req_addr = pc_q;
         // 空闲：请求被杀死、正在清空，或者返回数据能够交给 D1/Buffer。
@@ -43,7 +45,7 @@ module if_stage (
                          (request_killed_q || redirect.valid || flush || response_can_buffer);
     end
 
-    // 2. 握手与响应组包：被 kill 或正处于清空周期的响应只能消费，不能进入流水线。
+    // 握手与响应组包：被 kill 或正处于清空周期的响应只能消费，不能进入流水线。
     always_comb begin
         response_can_buffer = !buffer_q.valid || out_ready;
         request_fire = imem_req_valid && imem_req_ready;
@@ -55,7 +57,7 @@ module if_stage (
         response_packet.valid = response_usable;
     end
 
-    // 3. 输出选择：buffer 优先，否则允许新响应直接送往 D1。
+    // 输出选择：buffer 优先，否则允许新响应直接送往 D1。
     always_comb begin
         out_packet = buffer_q;
         if (!buffer_q.valid)
@@ -64,7 +66,8 @@ module if_stage (
             out_packet.valid = 1'b0;
     end
 
-    // 4. PC 状态：只有请求真正被接受后才推进；redirect 优先切换取指地址。
+    // 时序部分
+    // PC 状态：只有请求真正被接受后才推进；redirect 优先切换取指地址。
     always_ff @(posedge clk) begin
         if (rst)
             pc_q <= RESET_VECTOR;
@@ -74,7 +77,7 @@ module if_stage (
             pc_q <= prediction.taken ? prediction.target : pc_q + xlen_t'(4);
     end
 
-    // 5. Request 状态：清空时若请求尚未返回，必须保留 kill 标志直到旧响应被消费。
+    // Request 状态：清空时若请求尚未返回，必须保留 kill 标志直到旧响应被消费。
     always_ff @(posedge clk) begin
         if (rst) begin
             request_q <= '0;
@@ -103,7 +106,7 @@ module if_stage (
         end
     end
 
-    // 6. Buffer 状态：覆盖“旧包出队且新响应同拍到达”的连续传输情况。
+    // Buffer 状态：覆盖“旧包出队且新响应同拍到达”的连续传输情况。
     // 处理 b1q1 与 b0q0；b1q0 保持，b0q1 在 D1 暂停时保存返回包。
     always_ff @(posedge clk) begin
         if (rst || redirect.valid || flush)

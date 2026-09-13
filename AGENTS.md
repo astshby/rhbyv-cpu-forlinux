@@ -1,27 +1,72 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project Structure
 
-SystemVerilog RTL lives in `vsrc/`. Keep synthesizable CPU logic in `vsrc/core/`, the FPGA-facing wrapper in `vsrc/cpu/`, simulation-only memory and top modules in `vsrc/sim_cpu/`, and shared definitions in `vsrc/pkg/`. Module tests belong in `tb/unit/`; full-core directed tests belong in `tb/core/`. Source lists and Verilator runners are maintained under `scripts/`. `benchmark/` is reserved for later software workloads and may remain empty.
+Keep portable RTL in `vsrc/core/`, packages in `vsrc/pkg/`, simulation models in
+`vsrc/sim_cpu/`, and the FPGA wrapper in `vsrc/cpu/`. Put unit tests in
+`tb/unit/`, directed CPU tests in `tb/core/`, and the upstream ISA-test adapter
+in `tb/riscv_tests/`. Source lists and runners belong in `scripts/`. Generated
+files stay under ignored `build/`, `logs/`, or `vivado-workspace/`.
 
-## Build, Test, and Development Commands
+## RTL and Comment Style
 
-Run commands from the repository root:
+Use SystemVerilog, four-space indentation, lowercase module/file names, explicit
+ports, `logic`, `always_comb`, and `always_ff` with nonblocking assignments.
+Prefer typed enums and packed structs to naked control values. Separate
+unrelated combinational and sequential behavior into functional blocks.
 
-- `make lint XLEN=32` checks all synthesizable and simulation tops.
-- `make unit XLEN=32` runs every `tb/unit/tb_*.sv` test.
-- `make directed XLEN=32` runs full-core tests under `tb/core/`.
-- Repeat the three commands with `XLEN=64` after width-dependent changes.
-- `make test XLEN=32` performs the complete lint, unit, and directed sequence.
+Retain every module's `Module` and `Description` header. Preserve useful comments
+during moves, renames, merges, and refactors; change them only with behavior.
+Comments should explain boundaries, protocols, priority, or non-obvious timing.
+Do not prefix RTL block comments with `1.`, `2.`, etc. Prefer Chinese for new
+explanatory inline comments while retaining accurate headers.
 
-Verilator is the primary simulator; do not introduce Cocotb. Vivado work is deferred unless explicitly requested.
+## Review Before Modification
 
-## Coding Style & Naming Conventions
+Treat `main` and reviewed stage branches as protected. Before changing a completed
+stage, inspect it, explain the proposed behavior and affected files, and wait for
+approval. Then change only that scope. Never discard, overwrite, or commit
+unrelated user changes, delete comments silently, or restore an older
+implementation over the reviewed version.
 
-Use four-space indentation, lowercase module/file names, explicit port connections, `always_comb` for combinational logic, and `always_ff` with nonblocking assignments for sequential logic. Separate unrelated combinational and sequential behavior into functional blocks. Prefix each block with a short comment explaining its purpose. Preserve module-header descriptions and existing useful comments; move or adapt them when code moves, but do not silently delete them. Prefer context-specific architectural constants from `riscv_unpriv_pkg` or `riscv_priv_pkg` over unexplained literals.
+## Tests and Change Records
 
-## Testing & Change Control
+RTL changes require focused tests and regression. TBs declare
+`timeunit 1ns` and `timeprecision 1ps`, use deterministic clock-edge stimulus,
+and print `PASS`. Run both widths for shared RTL:
 
-Every RTL change requires a focused module test followed by the complete applicable regression. Tests must use deterministic clock-edge stimulus, declare `timeunit`/`timeprecision`, and print an unambiguous `PASS` marker. Record stage-level changes and exact test results in `COMMIT.md`.
+```bash
+make test XLEN=32
+make test XLEN=64
+make riscv-tests XLEN=32
+make riscv-tests XLEN=64
+make benchmark-smoke XLEN=32
+make benchmark-smoke XLEN=64
+make coremark XLEN=32
+make coremark XLEN=64
+```
 
-Treat reviewed stage branches and `main` as protected baselines. Explain the proposed scope before changing completed stages. Never discard user changes, remove comments, mix unrelated files into a commit, or delete a stage branch until its history is reachable from the target and all regressions pass.
+`make test` excludes riscv-tests and benchmarks. Run benchmark targets when C
+runtime, CSR counters, ISA behavior, memory timing, or benchmark support changes.
+Do not edit `benchmark/coremark/vendor/coremark/`; port changes belong outside the
+vendor snapshot. Report exact PASS/SKIP counts and anything not run. Record stage
+changes, architectural or timing effects, affected files, and results in
+`docs/COMMIT.md`.
+
+## Documentation Synchronization
+
+Update the matching `docs/` file whenever a target, feature, module responsibility,
+interface, directory, command, tool, or FPGA workflow changes. Keep `README.md`
+current. Separate hardware and software plans into their roadmaps. Maintain only
+this root `AGENTS.md`. Put explanatory learning notes under `docs/understand/`.
+
+## Branches and Pull Requests
+
+Contributors and agents use a purpose-specific branch; never push
+directly to `main`. Keep commits reviewable and include tests. PRs describe
+behavior, files, timing/protocol effects, and exact results; link issues and add
+waveforms or FPGA reports when relevant. The project maintainer reviews and
+merges; contributors do not self-merge. Delete a stage branch only after its
+history is reachable from the reviewed target. Treat `riscv-tests/` as a
+read-only clone: never stage or modify it. Keep local adapters and test lists
+under `tb/riscv_tests/` or `scripts/`.

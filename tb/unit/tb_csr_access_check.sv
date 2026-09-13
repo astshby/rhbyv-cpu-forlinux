@@ -4,6 +4,7 @@ module tb_csr_access_check;
     timeunit 1ns;
     timeprecision 1ps;
 
+    import core_config_pkg::*;
     import core_types_pkg::*;
     import riscv_priv_pkg::*;
 
@@ -31,6 +32,21 @@ module tb_csr_access_check;
         assert (!implemented && illegal) else $fatal(1, "MIE is reserved for interrupt stage");
         address = CSR_MIP; #1;
         assert (!implemented && illegal) else $fatal(1, "MIP is reserved for interrupt stage");
+        address = CSR_MCYCLEH;
+        write_intent = 1'b1; #1;
+        if (XLEN == 32)
+            assert (implemented && !read_only && !illegal)
+                else $fatal(1, "RV32 MCYCLEH access");
+        else
+            assert (!implemented && illegal)
+                else $fatal(1, "RV64 must not implement MCYCLEH");
+        address = CSR_MINSTRETH; #1;
+        if (XLEN == 32)
+            assert (implemented && !read_only && !illegal)
+                else $fatal(1, "RV32 MINSTRETH access");
+        else
+            assert (!implemented && illegal)
+                else $fatal(1, "RV64 must not implement MINSTRETH");
         address = 12'h7c0; #1;
         assert (!implemented && illegal) else $fatal(1, "unimplemented CSR");
         $display("PASS tb_csr_access_check");

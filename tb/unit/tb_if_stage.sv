@@ -10,7 +10,7 @@ module tb_if_stage;
 
     logic clk = 1'b0;
     logic rst = 1'b1;
-    logic fetch_enable;
+    logic fetch_request_enable;
     logic out_ready;
     logic flush;
     redirect_t redirect;
@@ -27,7 +27,7 @@ module tb_if_stage;
     if_stage dut (.*);
 
     initial begin
-        fetch_enable = 1'b1;
+        fetch_request_enable = 1'b1;
         out_ready = 1'b1;
         flush = 1'b0;
         redirect = '0;
@@ -98,7 +98,7 @@ module tb_if_stage;
         @(posedge clk);
         @(negedge clk);
         imem_rsp_valid = 1'b0;
-        fetch_enable = 1'b0;
+        fetch_request_enable = 1'b0;
         flush = 1'b1;
         #1;
         assert (!imem_req_valid && !out_packet.valid)

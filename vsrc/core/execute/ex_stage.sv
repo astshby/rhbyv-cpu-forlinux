@@ -1,23 +1,19 @@
 // Module: ex_stage
 // Description: Applies forwarding and executes ALU, CSR, address, branch, and JALR operations.
 module ex_stage (
-    input  pipeline_pkg::d2_ex_t       in_packet,
-    // 包含 MEM 与 WB 阶段的前递信息；valid 始终是前递判据。
-    input  logic                       mem_forward_valid,
-    input  core_types_pkg::gpr_addr_t  mem_forward_addr,
-    input  core_types_pkg::xlen_t      mem_forward_data,
-    input  logic                       wb_forward_valid,
-    input  core_types_pkg::gpr_addr_t  wb_forward_addr,
-    input  core_types_pkg::xlen_t      wb_forward_data,
-    input  core_types_pkg::xlen_t      csr_old_data,
-    input  logic                       csr_access_illegal,
-    output pipeline_pkg::ex_mem_t      out_packet,
-    output pipeline_pkg::redirect_t    redirect,
-    output pipeline_pkg::pred_update_t pred_update
+    input  pipeline_pkg::d2_ex_t         in_packet,
+    input  pipeline_pkg::gpr_forward_t  mem_gpr_forward,
+    input  pipeline_pkg::gpr_forward_t  wb_gpr_forward,
+    input  core_types_pkg::xlen_t        csr_committed_data, // csr在ex阶段，不写入流水级寄存器合理
+    input  pipeline_pkg::csr_forward_t  mem_csr_forward,
+    input  pipeline_pkg::csr_forward_t  wb_csr_forward,
+    output pipeline_pkg::ex_mem_t        out_packet,
+    output pipeline_pkg::redirect_t      redirect,
+    output pipeline_pkg::pred_update_t   pred_update,
+    output logic                         serialize_req
 );
     import core_types_pkg::*;
     import pipeline_pkg::*;
-    import riscv_priv_pkg::*;
 
     xlen_t forwarded_rs1;
     xlen_t forwarded_rs2;
@@ -29,50 +25,31 @@ module ex_stage (
     logic control_op;
     logic mispredict;
     xlen_t csr_operand;
+    xlen_t csr_old_data;
     xlen_t csr_proposed_data;
     xlen_t csr_new_data;
     exception_t execute_exc;
 
-    function automatic logic address_misaligned(
-        input xlen_t address,
-        input mem_size_e size
-    );
-        unique case (size)
-            MEM_BYTE:  address_misaligned = 1'b0;
-            MEM_HALF:  address_misaligned = address[0];
-            MEM_WORD:  address_misaligned = |address[1:0];
-            default:   address_misaligned = |address[2:0];
-        endcase
-    endfunction
-
-    // 1. GPR 前递：MEM 比 WB 更新，因此 operand_bypass 内部优先选择 MEM。
-    operand_bypass u_rs1_bypass (
+    // GPR 前递：MEM 比 WB 更新，因此 gpr_bypass 内部优先选择 MEM。
+    gpr_bypass u_rs1_bypass (
         .source_addr(in_packet.rs1),
         .source_used(in_packet.uop.rs1_used),
         .original_data(in_packet.rs1_data),
-        .mem_valid(mem_forward_valid),
-        .mem_addr(mem_forward_addr),
-        .mem_data(mem_forward_data),
-        .wb_valid(wb_forward_valid),
-        .wb_addr(wb_forward_addr),
-        .wb_data(wb_forward_data),
+        .mem_forward(mem_gpr_forward),
+        .wb_forward(wb_gpr_forward),
         .forwarded_data(forwarded_rs1)
     );
 
-    operand_bypass u_rs2_bypass (
+    gpr_bypass u_rs2_bypass (
         .source_addr(in_packet.rs2),
         .source_used(in_packet.uop.rs2_used),
         .original_data(in_packet.rs2_data),
-        .mem_valid(mem_forward_valid),
-        .mem_addr(mem_forward_addr),
-        .mem_data(mem_forward_data),
-        .wb_valid(wb_forward_valid),
-        .wb_addr(wb_forward_addr),
-        .wb_data(wb_forward_data),
+        .mem_forward(mem_gpr_forward),
+        .wb_forward(wb_gpr_forward),
         .forwarded_data(forwarded_rs2)
     );
 
-    // 2. 操作数选择：CSR 立即数使用指令 rs1 字段中的零扩展 zimm。
+    // 操作数选择：CSR 立即数使用指令 rs1 字段中的零扩展 zimm。
     always_comb begin
         unique case (in_packet.uop.op_a_sel)
             OP_A_RS1:  operand_a = forwarded_rs1;
@@ -85,7 +62,7 @@ module ex_stage (
                     ? xlen_t'(in_packet.rs1) : forwarded_rs1;
     end
 
-    // 3. ALU、分支与 CSR 执行单元。
+    // ALU、分支与 CSR 执行单元。
     alu u_alu (
         .operand_a,
         .operand_b,
@@ -105,6 +82,16 @@ module ex_stage (
         .target(branch_target)
     );
 
+    // CSR 旁路在执行阶段选择最新值，与 GPR 操作数旁路保持相同边界。
+    csr_bypass u_csr_bypass (
+        .read_addr(in_packet.csr_addr),
+        .committed_data(csr_committed_data),
+        .mem_forward(mem_csr_forward),
+        .wb_forward(wb_csr_forward),
+        .bypass_data(csr_old_data)
+    );
+
+    // csr的计算放在这个阶段,并行与alu处理
     csr_exec u_csr_exec (
         .command(in_packet.uop.csr_cmd),
         .old_value(csr_old_data),
@@ -112,36 +99,29 @@ module ex_stage (
         .new_value(csr_proposed_data)
     );
 
+    // 先执行，后合法化
     csr_warl u_csr_warl (
         .address(in_packet.csr_addr),
         .proposed_value(csr_proposed_data),
         .legal_value(csr_new_data)
     );
 
-    // 4. EX 异常：已有异常优先，其次检查 CSR 权限、访存对齐和实际跳转目标。
+    // EX 异常检测使用经过前递后的实际地址和控制流结果。
+    ex_exception_check u_ex_exception_check (
+        .in_packet,
+        .effective_address(alu_result),
+        .branch_taken,
+        .branch_target,
+        .exception(execute_exc)
+    );
+
+    // 只为 EX 本级新发现的异常请求序列化，前级异常已经在 D1 处理。
     always_comb begin
-        execute_exc = in_packet.exc;
-        if (in_packet.valid && !execute_exc.valid) begin
-            if (in_packet.uop.csr_valid && csr_access_illegal) begin
-                execute_exc.valid = 1'b1;
-                execute_exc.cause = EXC_ILLEGAL_INST;
-                execute_exc.tval = xlen_t'(in_packet.inst);
-            end else if ((in_packet.uop.mem_read || in_packet.uop.mem_write) &&
-                         address_misaligned(alu_result, in_packet.uop.mem_size)) begin
-                execute_exc.valid = 1'b1;
-                execute_exc.cause = in_packet.uop.mem_read
-                                  ? EXC_LOAD_ADDR_MISALIGNED
-                                  : EXC_STORE_ADDR_MISALIGNED;
-                execute_exc.tval = alu_result;
-            end else if (control_op && branch_taken && (branch_target[1:0] != 2'b00)) begin
-                execute_exc.valid = 1'b1;
-                execute_exc.cause = EXC_INST_ADDR_MISALIGNED;
-                execute_exc.tval = branch_target;
-            end
-        end
+        serialize_req = in_packet.valid && !in_packet.exc.valid &&
+                        execute_exc.valid;
     end
 
-    // 5. 分支控制：判断预测错误，并生成给 BTB/GShare 的实际执行结果。
+    // 分支控制：判断预测错误，并生成给 BTB/GShare 的实际执行结果。
     // control_op 包含条件分支与 JALR；JAL 已在 D1 处理。
     always_comb begin
         control_op = (in_packet.uop.branch_op != BR_NONE) &&
@@ -151,7 +131,7 @@ module ex_stage (
                       (branch_taken && (in_packet.pred.target != branch_target)));
 
         pred_update = '0;
-        if (in_packet.valid && control_op && !execute_exc.valid) begin
+        if (in_packet.valid && !execute_exc.valid && control_op) begin
             pred_update.valid = 1'b1;
             pred_update.kind = in_packet.uop.branch_op;
             pred_update.pc = in_packet.pc;
@@ -168,7 +148,7 @@ module ex_stage (
         end
     end
 
-    // 6. 输出打包：Store 使用前递后的 rs2，CSR 同时携带旧值和 WARL 合法新值。
+    // 输出打包：Store 使用前递后的 rs2，CSR 同时携带旧值和 WARL 合法新值。
     always_comb begin
         out_packet = '0;
         out_packet.valid = in_packet.valid;

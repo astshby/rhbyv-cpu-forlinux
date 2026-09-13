@@ -10,6 +10,10 @@ SECTIONS
     }
 
     . = ALIGN(0x1000);
+    .tohost : {
+        KEEP(*(.tohost))
+    }
+
     .data : {
         *(.data .data.*)
         *(.rodata .rodata.*)

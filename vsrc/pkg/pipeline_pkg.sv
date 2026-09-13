@@ -1,6 +1,6 @@
 // Package: pipeline_pkg
 // Description: Packed packets carried across the six pipeline boundaries.
-// 保存流水线相关信息，包括：1.异常处理 2.分支预测相关 3.流水级寄存器
+// 保存流水线相关信息，包括异常处理、分支预测相关信息和流水级寄存器。
 package pipeline_pkg;
     import core_config_pkg::*;
     import core_types_pkg::*;
@@ -12,6 +12,19 @@ package pipeline_pkg;
         exc_cause_e cause; // 异常原因在rv_priv定义
         xlen_t      tval;
     } exception_t;
+
+    // 流水级向 EX 提供的前递候选，valid 表示该地址和值可以参与旁路。
+    typedef struct packed {
+        logic      valid;
+        gpr_addr_t addr;
+        xlen_t     data;
+    } gpr_forward_t;
+
+    typedef struct packed {
+        logic      valid;
+        csr_addr_t addr;
+        xlen_t     data;
+    } csr_forward_t;
 
     // 流水线必备，与btb与预测有关
     // if阶段必须传递的预测信息

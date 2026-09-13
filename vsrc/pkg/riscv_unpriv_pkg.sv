@@ -71,7 +71,7 @@ package riscv_unpriv_pkg;
     localparam logic [2:0] F3_MISC_MEM_FENCE_I = 3'b001;
 
     // Zicsr 的寄存器与立即数形式共用 SYSTEM opcode
-    localparam logic [2:0] F3_SYSTEM_ENV       = 3'b000;
+    localparam logic [2:0] F3_SYSTEM_ENV       = 3'b000; //ecall, ebreak, mret专用，它们用imm区分
     localparam logic [2:0] F3_SYSTEM_CSRRW     = 3'b001;
     localparam logic [2:0] F3_SYSTEM_CSRRS     = 3'b010;
     localparam logic [2:0] F3_SYSTEM_CSRRC     = 3'b011;

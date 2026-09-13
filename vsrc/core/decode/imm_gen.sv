@@ -10,7 +10,7 @@ module imm_gen (
 
     always_comb begin
         unique case (inst[6:0])
-            OPCODE_OP_IMM, OPCODE_OP_IMM_32, OPCODE_LOAD, OPCODE_JALR, OPCODE_SYSTEM:
+            OPCODE_OP_IMM, OPCODE_OP_IMM_32, OPCODE_LOAD, OPCODE_JALR, OPCODE_SYSTEM: //sys指令也是I解码
                 imm = {{(XLEN-12){inst[31]}}, inst[31:20]};
             OPCODE_STORE:
                 imm = {{(XLEN-12){inst[31]}}, inst[31:25], inst[11:7]};

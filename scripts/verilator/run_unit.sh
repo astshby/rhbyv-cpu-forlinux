@@ -15,8 +15,8 @@ for tb_path in tb/unit/tb_*.sv; do
         -f scripts/rtl_files.f \
         vsrc/sim_cpu/sim_imem.sv \
         vsrc/sim_cpu/sim_dmem.sv \
-        vsrc/sim_cpu/sim_test_device.sv \
         tb/common/rv_asm_pkg.sv \
+        tb/common/store_result_monitor.sv \
         "${tb_path}" \
         --top-module "${test_name}" \
         >"logs/${test_name}-rv${xlen}.log" 2>&1

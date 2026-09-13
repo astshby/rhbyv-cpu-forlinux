@@ -5,6 +5,8 @@ package rv_asm_pkg;
     import riscv_unpriv_pkg::*;
     import riscv_priv_pkg::*;
 
+    localparam logic [31:0] TEST_RESULT_ADDR = 32'h0000_1000;
+
     // function用于‘函数’计算，是零时间计算（通常不包含时序），task可包含，module是标准的模块
     // automatic,每次 function 调用拥有自己独立的局部存储，对于递归/并发很重要
     // 名字赋值，每次返回的都是名字所“调用”的函数
