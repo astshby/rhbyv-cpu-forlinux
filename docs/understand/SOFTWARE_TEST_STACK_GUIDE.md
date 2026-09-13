@@ -2,7 +2,8 @@
 
 本文以当前 riscv-tests 流程为例，解释一份 RISC-V 汇编源码如何经过工具链、链接、
 存储器镜像、Verilator testbench 和六级流水 Core，最终得到 PASS/FAIL。本文描述的是
-当前 A4 实现，不把未来 Cache、中断、操作系统或 FPGA 外设当成已经完成的功能。
+当前 A5 基线中的 A4 ISA 测试实现，不把未来 Cache、中断、操作系统或 FPGA 外设当成
+已经完成的功能。
 
 ## 三类代码必须分清
 

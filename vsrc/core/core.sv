@@ -151,7 +151,7 @@ module core (
         .clk,
         .rst,
         .serialize_start,
-        .serialize_complete(wb_redirect.valid),
+        .serialize_complete(selected_redirect.valid),
         .frontend_flush,
         .fetch_request_enable
     );

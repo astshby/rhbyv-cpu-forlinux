@@ -8,6 +8,7 @@ module csr_access_check (
     output logic                      read_only,
     output logic                      illegal
 );
+    import core_config_pkg::*;
     import riscv_priv_pkg::*;
 
     // 当前 A4 只实现同步异常所需的机器级 CSR；MIE/MIP 留待中断阶段接入。
@@ -17,6 +18,8 @@ module csr_access_check (
             CSR_MCAUSE, CSR_MTVAL, CSR_MCYCLE, CSR_MINSTRET,
             CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID, CSR_MHARTID:
                 implemented = 1'b1;
+            CSR_MCYCLEH, CSR_MINSTRETH:
+                implemented = (XLEN == 32);
             default:
                 implemented = 1'b0;
         endcase

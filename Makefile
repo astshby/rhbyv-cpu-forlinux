@@ -3,7 +3,7 @@ XLEN ?= 32
 
 VFLAGS := -Wall -Wno-fatal --timing -DCORE_XLEN=$(XLEN)
 
-.PHONY: lint unit directed riscv-tests test clean vivado-project
+.PHONY: lint unit directed riscv-tests benchmark-smoke coremark test clean vivado-project
 
 lint:
 	$(VERILATOR) $(VFLAGS) --lint-only -f scripts/rtl_files.f --top-module core
@@ -18,6 +18,12 @@ directed:
 
 riscv-tests:
 	bash scripts/verilator/run_riscv_tests.sh $(XLEN)
+
+benchmark-smoke:
+	bash scripts/verilator/run_benchmark_smoke.sh $(XLEN)
+
+coremark:
+	bash scripts/verilator/run_coremark.sh $(XLEN)
 
 test: lint unit directed
 

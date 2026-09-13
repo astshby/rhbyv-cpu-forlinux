@@ -1,6 +1,6 @@
 // Module: serialize_controller
-// Description: Blocks new fetches while an exception or MRET drains to WB.
-// 标记异常处理：开始处理时清空年轻取指，并保持停取指状态直到 WB 产生最终重定向。
+// Description: Blocks fetch while serialization drains and cancels it on an older redirect.
+// 开始序列化时清空年轻取指，直到 WB 完成该事件，或更老的重定向将其取消。
 module serialize_controller (
     input  logic clk,
     input  logic rst,
@@ -11,14 +11,14 @@ module serialize_controller (
 );
     logic serialize_pending_q;
 
-    // frontend_flush:start立刻清空并且必须要结束(wb_redirect.valid)才结束清空
-    // fetch_request_enable:当serilaize开始，或pending进行都不允许fetch_request_enable
+    // serialize_start 立刻清空前端；同拍更老的重定向拥有取消优先级。
+    // 序列化开始或 pending 期间都不允许继续发起取指请求。
     always_comb begin
         frontend_flush = serialize_start && !serialize_complete;
         fetch_request_enable = !serialize_pending_q && !serialize_start;
     end
 
-    // WB Trap/MRET 重定向结束本次序列化，完成事件优先于新的开始事件。
+    // 重定向可以完成当前 Trap/MRET，也可以取消错误路径上的年轻序列化请求。
     always_ff @(posedge clk) begin
         if (rst || serialize_complete)
             serialize_pending_q <= 1'b0;

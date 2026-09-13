@@ -73,13 +73,31 @@ module tb_csr_file;
         @(negedge clk);
         assert (read_data > cycle_before) else $fatal(1, "MCYCLE increment");
 
+        if (XLEN == 32) begin
+            write_csr(CSR_MCYCLEH, xlen_t'(32'h1234_5678));
+            read_addr = CSR_MCYCLEH; #1;
+            assert (read_data == xlen_t'(32'h1234_5678))
+                else $fatal(1, "MCYCLEH state");
+            write_csr(CSR_MCYCLE, xlen_t'(32'h10));
+            read_addr = CSR_MCYCLEH; #1;
+            assert (read_data == xlen_t'(32'h1234_5678))
+                else $fatal(1, "MCYCLE low write must preserve high half");
+            write_csr(CSR_MINSTRETH, xlen_t'(32'h1357_9bdf));
+            read_addr = CSR_MINSTRETH; #1;
+            assert (read_data == xlen_t'(32'h1357_9bdf))
+                else $fatal(1, "MINSTRETH state");
+        end
+
         @(negedge clk);
         retire_valid = 1'b1;
         @(posedge clk);
         @(negedge clk);
         retire_valid = 1'b0;
         read_addr = CSR_MINSTRET; #1;
-        assert (read_data == xlen_t'(1)) else $fatal(1, "MINSTRET increment");
+        if (XLEN == 32)
+            assert (read_data == xlen_t'(1)) else $fatal(1, "MINSTRET low increment");
+        else
+            assert (read_data == xlen_t'(1)) else $fatal(1, "MINSTRET increment");
 
         // 先打开 MIE，验证 trap 保存到 MPIE，随后 MRET 能恢复原中断状态。
         write_csr(CSR_MSTATUS, xlen_t'(32'h1808));

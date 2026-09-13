@@ -13,6 +13,9 @@ module tb_riscv_priv;
             else $fatal(1, "invalid privileged instruction encoding");
         assert (CSR_MIE == 12'h304 && CSR_MIP == 12'h344)
             else $fatal(1, "invalid machine interrupt CSR address");
+        assert (CSR_MCYCLE == 12'hb00 && CSR_MINSTRET == 12'hb02 &&
+                CSR_MCYCLEH == 12'hb80 && CSR_MINSTRETH == 12'hb82)
+            else $fatal(1, "invalid machine counter CSR address");
         assert (CSR_MVENDORID == 12'hf11 && CSR_MARCHID == 12'hf12 &&
                 CSR_MIMPID == 12'hf13 && CSR_MHARTID == 12'hf14)
             else $fatal(1, "invalid machine information CSR address");

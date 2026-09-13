@@ -22,15 +22,15 @@ module csr_file (
     import core_types_pkg::*;
     import riscv_priv_pkg::*;
 
-    // 暂时实现8个寄存器，其余只读用‘wire’(misa/mvendorid/marchid/mimpid/mhartid)。
+    // Trap 状态使用 XLEN 宽寄存器；计数器始终保留完整 64 位状态。
     xlen_t mstatus_q, mstatus_d;
     xlen_t mtvec_q, mtvec_d;
     xlen_t mscratch_q, mscratch_d;
     xlen_t mepc_q, mepc_d;
     xlen_t mcause_q, mcause_d;
     xlen_t mtval_q, mtval_d;
-    xlen_t mcycle_q, mcycle_d;
-    xlen_t minstret_q, minstret_d;
+    logic [63:0] mcycle_q, mcycle_d;
+    logic [63:0] minstret_q, minstret_d;
 
     // misa 只读，通过函数写入值
     function automatic xlen_t misa_value();
@@ -56,8 +56,10 @@ module csr_file (
             CSR_MEPC:     read_data = mepc_q;
             CSR_MCAUSE:   read_data = mcause_q;
             CSR_MTVAL:    read_data = mtval_q;
-            CSR_MCYCLE:   read_data = mcycle_q;
-            CSR_MINSTRET: read_data = minstret_q;
+            CSR_MCYCLE:   read_data = xlen_t'(mcycle_q);
+            CSR_MINSTRET: read_data = xlen_t'(minstret_q);
+            CSR_MCYCLEH:  read_data = xlen_t'(mcycle_q[63:32]);
+            CSR_MINSTRETH: read_data = xlen_t'(minstret_q[63:32]);
             CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID,
             CSR_MHARTID:  read_data = '0;
             default:      read_data = '0;
@@ -102,18 +104,38 @@ module csr_file (
         end
     end
 
-    // 性能计数器下一状态：每拍增加 MCYCLE，只有正常退休才增加 MINSTRET；显式写入优先(同样后覆盖)。
+    // 性能计数器下一状态：每拍增加 MCYCLE，只有正常退休才增加 MINSTRET；显式写入优先。
+    // RV32 可分别访问低/高 32 位，RV64 通过低地址一次访问全部 64 位。
     always_comb begin
-        mcycle_d = mcycle_q + xlen_t'(1);
+        mcycle_d = mcycle_q + 64'd1;
         minstret_d = minstret_q;
         if (retire_valid)
-            minstret_d = minstret_q + xlen_t'(1);
+            minstret_d = minstret_q + 64'd1;
 
         if (write_valid) begin
-            if (write_addr == CSR_MCYCLE)
-                mcycle_d = write_legal_data;
-            if (write_addr == CSR_MINSTRET)
-                minstret_d = write_legal_data;
+            unique case (write_addr)
+                CSR_MCYCLE: begin
+                    if (XLEN == 32)
+                        mcycle_d[31:0] = write_legal_data[31:0];
+                    else
+                        mcycle_d = {{(64-XLEN){1'b0}}, write_legal_data};
+                end
+                CSR_MINSTRET: begin
+                    if (XLEN == 32)
+                        minstret_d[31:0] = write_legal_data[31:0];
+                    else
+                        minstret_d = {{(64-XLEN){1'b0}}, write_legal_data};
+                end
+                CSR_MCYCLEH: begin
+                    if (XLEN == 32)
+                        mcycle_d[63:32] = write_legal_data[31:0];
+                end
+                CSR_MINSTRETH: begin
+                    if (XLEN == 32)
+                        minstret_d[63:32] = write_legal_data[31:0];
+                end
+                default: ;
+            endcase
         end
     end
 

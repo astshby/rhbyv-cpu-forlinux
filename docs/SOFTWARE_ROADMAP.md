@@ -1068,6 +1068,11 @@ ai_accel_test.c
 
 # 26. CoreMark 软件路径
 
+当前 A5 已在 `benchmark/` 落地第一阶段的独立裸机 BSP 与 CoreMark port：仿真字符
+Store 代替尚未实现的 UART，`mcycle` 代替外设 Timer，ECALL 后通过 `tohost` 结束。
+RV32/RV64 的 performance 与 validation CRC 均已通过；执行方法、当前分数及 FPGA
+指标边界见 [CoreMark 与性能指标解读](understand/COREMARK_AND_PERFORMANCE.md)。
+
 ```text
 crt0
  ↓

@@ -1,6 +1,9 @@
 // Module: sim_cpu_top
 // Description: Simulation-only wrapper around the portable core and memories.
-module sim_cpu_top (
+module sim_cpu_top #(
+    parameter int unsigned IMEM_DEPTH_WORDS = 4096,
+    parameter int unsigned DMEM_DEPTH_WORDS = 4096
+) (
     input  logic                              clk,
     input  logic                              rst,
     output logic                              commit_valid,
@@ -68,7 +71,9 @@ module sim_cpu_top (
     );
     // 等价于 core u_core ( .* );
 
-    sim_imem u_imem (
+    sim_imem #(
+        .DEPTH_WORDS(IMEM_DEPTH_WORDS)
+    ) u_imem (
         .clk,
         .rst,
         .req_valid(imem_req_valid),
@@ -79,7 +84,9 @@ module sim_cpu_top (
         .rsp_ready(imem_rsp_ready)
     );
 
-    sim_dmem u_dmem (
+    sim_dmem #(
+        .DEPTH_WORDS(DMEM_DEPTH_WORDS)
+    ) u_dmem (
         .clk,
         .rst,
         .req_valid(dmem_req_valid),

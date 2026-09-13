@@ -35,6 +35,8 @@ Core 与存储器的时序契约详见 [BRAM、Cache 与存储器握手](underst
 | `make directed XLEN=32` | 遍历并运行全部 `tb/core/tb_*.sv` |
 | `make test XLEN=32` | 依次运行 lint、unit、directed |
 | `make riscv-tests XLEN=32` | 编译并运行 A4 适用的正式 MI/UI 回归；不属于 `make test` |
+| `make benchmark-smoke XLEN=32` | 验证裸机 C 运行时、软件算术和 64 位周期读取 |
+| `make coremark XLEN=32` | 执行 CoreMark 校准、performance 与 validation；不属于 `make test` |
 | `make vivado-project XLEN=32` | 创建 Zynq-7020 Vivado 工程框架 |
 | `make clean` | 删除 `build/`、`logs/` 和 `vivado-workspace/` |
 
@@ -45,6 +47,10 @@ make test XLEN=32
 make test XLEN=64
 make riscv-tests XLEN=32
 make riscv-tests XLEN=64
+make benchmark-smoke XLEN=32
+make benchmark-smoke XLEN=64
+make coremark XLEN=32
+make coremark XLEN=64
 ```
 
 ## 单元与整核测试
@@ -141,23 +147,29 @@ build/verilator/riscv-tests-rv32/Vtb_riscv_test \
 `build/` 和 `logs/` 可重建，不应参与功能审阅。重命名测试后旧 build 子目录不会
 自动消失；需要清理时再显式运行 `make clean`。
 
-## CoreMark 仿真准备
+## CoreMark 仿真
 
-上游 `riscv-tests/benchmarks/` 是 Dhrystone 等旧基准的集合，并不是 CoreMark。
-CoreMark v1.0 应放在本项目的 `benchmark/coremark/`，不能修改只读上游样本或 vendor
-快照。它需要 C 运行时，而当前 riscv-tests 只编译自包含汇编。A5 至少需要：
+上游 `riscv-tests/benchmarks/` 不是 CoreMark。A5 将官方 EEMBC `v1.01` 固定在
+`benchmark/coremark/vendor/coremark/`，其被测源码不作修改；启动、链接、计时、
+输出和软件算术分别放在 `benchmark/bsp/` 与 `benchmark/coremark/port/`。
 
-- 固定 CoreMark 源码版本和编译参数；
-- `crt0.S`、链接脚本、栈及 `.data/.bss` 初始化；
-- CoreMark port 层和基于 `mcycle` 的计时；
-- 不产生 M 指令的编译选项，以及软件乘除 helper 或匹配位宽/ISA 的 `libgcc`；
-- `tohost` 或仿真输出接口、结束状态与超时；
-- IMem/DMem 镜像生成、容量检查和 `make coremark` 入口。
+`make coremark` 先以一次 performance 迭代校准，再把正式迭代数放大到约 11M 个
+计时周期。performance 和 validation 使用各自规范 seeds，内存均为 2000 bytes，
+两次运行都必须输出 `Correct operation validated`。仿真按 1 MHz 对周期归一化：
 
-当前存储器容量为 16 KiB IMem、RV32 16 KiB DMem 或 RV64 32 KiB DMem；CoreMark 很
-可能需要调大深度或重新安排链接布局。本机 GCC 目前只报告默认 multilib，不能直接
-假定 RV32 `libgcc` helper 可用。M 扩展不是正确运行的前置条件，但没有硬件乘除时
-分数主要反映软件 helper 开销。
+```text
+CoreMark/MHz = Iterations × 1,000,000 / Total ticks
+```
+
+当前结果为 RV32 `11 / 11,148,066 = 0.986718 CoreMark/MHz`，RV64
+`10 / 12,004,387 = 0.833029 CoreMark/MHz`。运行日志位于
+`logs/coremark-{performance,validation}-rv<XLEN>.log`；ELF、map、dump 与镜像位于
+`build/benchmark/coremark-rv<XLEN>/`。可用 `COREMARK_ITERATIONS=N` 固定迭代数；只有
+已知实际时钟时才设置 `COREMARK_FREQ_MHZ=F` 估算 CoreMark/s。
+
+benchmark harness 单独把 IMem/DMem 扩为 128 KiB，普通 TB 的默认容量不变。字符输出
+是 TB 对 `sim_console` Store 的被动镜像，结束仍使用 ECALL 后写 `tohost`；它不是硬件
+UART。更多限制和上板指标见 [CoreMark 与性能指标解读](understand/COREMARK_AND_PERFORMANCE.md)。
 
 ## Vivado 与上板
 

@@ -40,11 +40,18 @@ make test XLEN=32
 make test XLEN=64
 make riscv-tests XLEN=32
 make riscv-tests XLEN=64
+make benchmark-smoke XLEN=32
+make benchmark-smoke XLEN=64
+make coremark XLEN=32
+make coremark XLEN=64
 ```
 
-`make test` excludes riscv-tests. Report exact PASS/SKIP counts and anything not
-run. Record stage changes, architectural or timing effects, affected files, and
-results in `docs/COMMIT.md`.
+`make test` excludes riscv-tests and benchmarks. Run benchmark targets when C
+runtime, CSR counters, ISA behavior, memory timing, or benchmark support changes.
+Do not edit `benchmark/coremark/vendor/coremark/`; port changes belong outside the
+vendor snapshot. Report exact PASS/SKIP counts and anything not run. Record stage
+changes, architectural or timing effects, affected files, and results in
+`docs/COMMIT.md`.
 
 ## Documentation Synchronization
 

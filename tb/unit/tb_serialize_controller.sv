@@ -38,7 +38,7 @@ module tb_serialize_controller;
         assert (!frontend_flush && !fetch_request_enable)
             else $fatal(1, "serialization pending hold");
 
-        // WB 完成事件清除 pending；重定向周期仍不提前发出新请求。
+        // WB 完成或更老重定向清除 pending；当拍仍不提前发出新请求。
         serialize_complete = 1'b1;
         #1;
         assert (!frontend_flush && !fetch_request_enable)
@@ -50,7 +50,7 @@ module tb_serialize_controller;
         assert (!frontend_flush && fetch_request_enable)
             else $fatal(1, "fetch resumes after completion");
 
-        // 理论上的同时事件按最老的 WB 完成处理，不留下 pending 状态。
+        // 同时事件按更老的重定向处理，不留下 pending 状态。
         serialize_start = 1'b1;
         serialize_complete = 1'b1;
         #1;

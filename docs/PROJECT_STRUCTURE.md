@@ -2,8 +2,8 @@
 
 ## 当前边界
 
-本项目按“可移植 Core、仿真平台、FPGA 平台”分层。当前 A4 已完成六级
-RV32I/RV64I Core、Zicsr、机器模式同步异常和 Verilator 验证闭环；FPGA BRAM、
+本项目按“可移植 Core、仿真平台、FPGA 平台”分层。当前 A5 已完成六级
+RV32I/RV64I Core、Zicsr、机器模式同步异常、裸机 C 与 CoreMark 验证闭环；FPGA BRAM、
 UART、中断、Cache、M/C 扩展和操作系统支持仍属于后续阶段。
 
 ```text
@@ -12,7 +12,7 @@ rhbyv-cpu-forlinux/
 ├── tb/            # 单元、整核和上游 ISA 测试适配
 ├── scripts/       # 源码清单、Verilator、工具链和 Vivado 脚本
 ├── riscv-tests/   # 可选的只读上游参考 clone，由父仓库忽略
-├── benchmark/     # A5 CoreMark/BSP 预留
+├── benchmark/     # 裸机 BSP、C smoke、CoreMark vendor 与 port
 ├── ip/            # Vivado IP 配置预留
 ├── constr/        # Zynq-7020 XDC 约束预留
 ├── docs/          # 项目文档
@@ -57,7 +57,8 @@ rhbyv-cpu-forlinux/
 ## `tb/`
 
 - `unit/`：一个 `tb_<module>.sv` 对应一个局部白盒测试，当前 31 项。
-- `core/`：短程序整核测试，覆盖基础指令、访存等待、预测、CSR 和 Trap。
+- `core/`：短程序整核测试，覆盖基础指令、访存等待、预测、CSR、Trap 和序列化取消。
+- `benchmark/`：运行 ELF 镜像的长程序 harness，被动镜像字符 Store 并监视 `tohost`。
 - `common/rv_asm_pkg.sv`：为整核定向测试生成具名 32 位指令编码。
 - `common/store_result_monitor.sv`：被动观察已握手 Store，仅由 TB 解释 PASS/FAIL。
 - `riscv_tests/`：本地环境、链接脚本、仿真 harness，以及固定上游源码快照。
@@ -73,6 +74,9 @@ rhbyv-cpu-forlinux/
 - `verilator/run_unit.sh`：遍历 `tb/unit/tb_*.sv`。
 - `verilator/run_directed.sh`：遍历 `tb/core/tb_*.sv`。
 - `verilator/run_riscv_tests.sh`：编译 vendored 汇编、生成镜像并运行 MI/UI 回归。
+- `verilator/build_benchmark_image.sh`：链接裸机 C/汇编并分离 IMem/DMem 镜像。
+- `verilator/run_benchmark_smoke.sh`：验证启动、栈、数据段、软件算术和 64 位计时。
+- `verilator/run_coremark.sh`：校准迭代数并执行 CoreMark performance/validation。
 - `verilator/verilog_hex_to_mem.py`：把 objcopy 字节镜像转换成 `$readmemh` 字宽。
 - `vivado/*.tcl`：工程创建、综合、实现和烧录框架。
 
@@ -86,6 +90,17 @@ Git submodule，也不作为普通文件提交。父仓库的新 clone 不会自
 正式快照固定 riscv-tests `933a897` 和 env `6de71ed`，并保留两份许可证。所有 CPU
 适配只允许进入 `tb/riscv_tests/env/` 或 runner；vendor 文件只在明确升级上游版本时
 整体刷新。`RISCV_TESTS_DIR` 仍可用于临时比较另一份干净 checkout。
+
+## `benchmark/`
+
+- `bsp/`：`crt0.S`、链接布局、ECALL/`tohost` 退出、`mcycle` 读取、内存函数和
+  不依赖 M 扩展的软件乘除 helper。
+- `smoke/`：在跑分前验证 `.data/.bss`、栈、函数调用、宽整数算术和计数器。
+- `coremark/vendor/coremark/`：固定且不修改的官方 `v1.01`（报告版本 1.0）源码。
+- `coremark/port/`：本 Core 的 seeds、静态内存、计时和字符输出适配。
+
+CoreMark 的 ELF、map、dump、镜像和日志均为生成物。vendor 的来源与许可证记录在
+`benchmark/coremark/vendor/VENDORING.md`；平台修改不得进入上游源码目录。
 
 ## 生成目录
 
@@ -103,5 +118,7 @@ C++ 编译缓存。`logs/` 保存每个测试的编译和运行输出。它们�
 - `docs/understand/`：协议与实现链路的学习、解读文档。
 - `docs/understand/MEMORY_HANDSHAKE.md`：Core、BRAM 和未来阻塞式 Cache 的握手约束。
 - `docs/understand/SOFTWARE_TEST_STACK_GUIDE.md`：软件测试从源码到硬件执行、Trap、`tohost` 和判定的完整链路。
+- `docs/understand/COREMARK_AND_PERFORMANCE.md`：CoreMark port、计时、分数及 FPGA 性能指标边界。
 - `.gitignore`：根级白名单，未列出的顶层内容默认忽略。
+- `.gitattributes`：保留官方 CoreMark 快照原有的行尾格式，不影响其他项目文件检查。
 - `LICENSE`：项目许可证。

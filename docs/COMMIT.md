@@ -231,3 +231,39 @@ A4 只实现机器模式同步异常。`mie/mip` 及软件、定时器、外部�
 - `make riscv-tests XLEN=64` 正式通过 `65/65`（MI 13 + UI 52）。
 - 两种位宽均显式跳过 `fence_i` 和 `ma_data`：前者需要 Zifencei 与可写指令存储一致性，后者要求未对齐访存直接完成。
 - 本次没有修改可综合 Core，也没有修改根目录上游样本 clone。
+
+## 2026-09-13（Asia/Shanghai）— A5 CoreMark 与周期性能闭环
+
+### 关键修改
+
+- 固定官方 EEMBC CoreMark `v1.01`（报告版本 1.0）源码和许可证，记录 commit
+  `cfa9ab377835911f23d9b0831c7be302ed1f58de`；被测 `core_*.c` 与 `coremark.h`
+  保持上游原样，平台适配独立放在 `benchmark/coremark/port/`。
+- 新增裸机 BSP：`crt0.S` 设置 `gp/sp/mtvec`、清零 `.bss` 并经 ECALL/`tohost`
+  退出；链接脚本、字符 Store、`memcpy/memset` 和软件乘除共同支持无 M 扩展的 C 程序。
+- `mcycle/minstret` 改为固定 64 位状态；RV32 新增 `mcycleh/minstreth` CSR 与原子高低高
+  读取，RV64 仍从低地址访问完整计数器。CSR 访问检查和两种位宽单元测试同步更新。
+- 新增 C 冒烟，覆盖 `.data/.bss`、栈、函数调用、32/64 位软件乘除、Store 与计数器；
+  新增通用 benchmark TB，并仅为长程序把仿真 IMem/DMem 参数化扩至 128 KiB。
+- 新增镜像构建、仿真构建和 CoreMark runner。runner 先校准迭代周期，再以 performance
+  与 validation seeds 各运行不少于 10 个归一化秒，并检查官方 CRC 成功文本。
+- CoreMark 长程序发现一处控制缺陷：较老 JALR 重定向清除了错误路径异常，却未清除
+  已登记的序列化 pending，导致永久停取指。`serialize_controller` 现由最终选中的任意
+  较老重定向完成或取消 pending；新增短叶子返回后紧跟非法填充的定向回归。
+- 新增 `docs/understand/COREMARK_AND_PERFORMANCE.md`，区分 CoreMark/MHz、实际
+  CoreMark/s、Fmax 和 CoreMark/LUT，并同步 README、目录、软硬件路线和仿真说明。
+
+### 验证结果
+
+- RV32/RV64 的 core、`sim_cpu_top`、`cpu_top` lint 均通过；新增计数器逻辑无宽度警告。
+- `make unit XLEN=32/64` 各 31 项全部通过。
+- `make directed XLEN=32/64` 各执行 9 项：8 项 PASS，另一位宽 ISA 用例明确 SKIP；
+  新的 JALR/序列化取消用例两种位宽均为 18 周期。
+- `make riscv-tests XLEN=32` 通过 `50/50`（MI 10 + UI 40）；RV64 通过 `65/65`
+  （MI 13 + UI 52）。两种位宽仍只跳过 `fence_i` 与 `ma_data`。
+- C smoke 通过：RV32 3945 周期，RV64 2494 周期。
+- CoreMark performance/validation 均报告 `Correct operation validated`。RV32 performance
+  为 11 次迭代、11,148,066 ticks、`0.986718 CoreMark/MHz`；RV64 为 10 次迭代、
+  12,004,387 ticks、`0.833029 CoreMark/MHz`。
+- vendor 文件逐字节匹配上游 `v1.01`，四个新增 runner 通过 `bash -n`，`git diff --check`
+  通过。Vivado、真实 Fmax、utilization 与上板 CoreMark 未执行，留待 A6。

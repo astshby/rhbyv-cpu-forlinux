@@ -13,7 +13,7 @@ IF → D1 → D2 → EX → MEM → WB
 具体 FPGA BRAM、UART 和板级 IO 解耦，Verilator 与 FPGA wrapper 共享同一套
 ready-valid 存储器协议。
 
-## 当前 A4 架构
+## 当前 A5 架构
 
 - IF 查询一套 BTB + 非推测 GShare，并随指令保存预测 metadata。
 - D1 完成译码、立即数、非法/SYSTEM 分类、早期异常和 JAL 解析。
@@ -25,7 +25,8 @@ ready-valid 存储器协议。
 - JAL 只训练 BTB；JALR 训练 BTB；条件分支训练 BTB、PHT 和 GHR。
 
 当前支持 RV32I/RV64I、六种 Zicsr、ECALL、EBREAK、MRET、机器模式同步异常、
-`mstatus/misa/mtvec/mscratch/mepc/mcause/mtval/mcycle/minstret`。FENCE 在当前
+`mstatus/misa/mtvec/mscratch/mepc/mcause/mtval/mcycle/minstret`；RV32 还可通过
+`mcycleh/minstreth` 原子读取完整 64 位计数。FENCE 在当前
 单核无 Cache 平台中按无副作用指令处理；FENCE.I 尚无真实 I/D 同步结构。
 
 ## SystemVerilog 规则
@@ -70,27 +71,25 @@ ready-valid 存储器协议。
 | A2 | RV64I、W 操作、LD/SD/LWU、64 位总线 | 已完成 |
 | A3 | BTB、GShare、预测 metadata 和更新仲裁 | 已完成 |
 | A4 | 完整 Zicsr、M-mode 同步异常、MRET、riscv-tests | 已完成并回归 |
-| A5 | CoreMark v1.0 仿真、BSP、计时和长程序验证 | 未开始 |
+| A5 | CoreMark v1.0 仿真、BSP、计时和长程序验证 | 已完成并回归 |
 | A6 | Zynq-7020 BRAM、UART、XDC、综合、实现和上板 | 未开始 |
 
 ### A5：CoreMark 仿真
 
-CoreMark 可以在没有 M 扩展时运行，但必须使用 `-march=rv32i_zicsr` 或
-`rv64i_zicsr`，乘除由软件 helper 完成。需要新增：
+- 固定官方 EEMBC `v1.01` 源码；被测 `core_*.c` 与 `coremark.h` 不作修改。
+- 建立 `crt0.S`、链接脚本、栈、`.bss` 清零、ECALL/`tohost` 退出和仿真字符输出。
+- 使用 `rv32i_zicsr/ilp32` 与 `rv64i_zicsr/lp64`；乘除由只含基础整数操作的软件
+  ABI helper 实现，不伪装硬件 M 扩展。
+- `mcycle` 固定为 64 位；RV32 通过 `mcycleh/mcycle/mcycleh` 三次读取避免回绕撕裂。
+- 仿真存储器按 benchmark 顶层扩至 128 KiB，普通测试仍保留原默认容量。
+- 先运行 C 冒烟，再分别运行 performance 与 validation seeds；脚本自动校准迭代数，
+  使计时区间不少于 10 个按 1 MHz 归一化的秒，并检查官方 CRC 文本。
+- 当前成绩为 RV32 `0.986718 CoreMark/MHz`、RV64 `0.833029 CoreMark/MHz`。这是
+  同步仿真存储器下的周期效率；真实 Fmax、CoreMark/s 和 CoreMark/LUT 留待 A6 上板。
 
-- `benchmark/coremark/` 中固定版本的 CoreMark v1.0 源码；
-- `benchmark/bsp/crt0.S`、链接脚本、栈、`.data/.bss` 初始化；
-- CoreMark `core_portme.c/.h` 和裸机输出接口；
-- 基于 `mcycle` 的 `start_time/stop_time/get_time`；
-- RV32 软件乘除 helper，或能提供对应 multilib 且与当前 `-march` 匹配的 `libgcc`；
-- `tohost`/仿真输出、PASS/FAIL 与超时机制；
-- ELF、IMem/DMem 镜像和 `make coremark XLEN=...` 流程；
-- 检查程序、数据、堆栈是否超过当前 16 KiB IMem、RV32 16 KiB/RV64 32 KiB DMem。
-
-RV32 当前只有低 XLEN 的 `mcycle`，长时间计时需要限制迭代数、软件处理回绕，
-或以后实现高半计数器。本机工具链目前只报告默认 multilib，A5 不能假定 RV32
-`libgcc` helper 已经存在。A5 的成绩主要验证 C 工具链、长程序、栈、存储器和计时
-稳定性；加入 M 扩展后必须重新测量性能。
+CoreMark 长程序暴露并修复了序列化取消缺陷：较老 JALR/分支重定向现在能取消错误
+路径上已登记的异常/MRET 序列化，不会永久关闭取指。加入 M、C、Cache 或修改存储
+时序后必须重新测量，不能沿用当前分数。
 
 ### A6：FPGA
 

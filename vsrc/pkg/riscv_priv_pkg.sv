@@ -22,6 +22,8 @@ package riscv_priv_pkg;
     // 性能与计数相关的csr
     localparam logic [11:0] CSR_MCYCLE   = 12'hB00; // 机器模式周期计数器
     localparam logic [11:0] CSR_MINSTRET = 12'hB02; // 已完整运行指令计数器
+    localparam logic [11:0] CSR_MCYCLEH  = 12'hB80; // RV32 周期计数器高 32 位
+    localparam logic [11:0] CSR_MINSTRETH = 12'hB82; // RV32 退休计数器高 32 位
     localparam logic [11:0] CSR_MVENDORID = 12'hF11; // 实现厂商编号；当前实现固定返回 0
     localparam logic [11:0] CSR_MARCHID   = 12'hF12; // 微架构编号；当前实现固定返回 0
     localparam logic [11:0] CSR_MIMPID    = 12'hF13; // 实现版本编号；当前实现固定返回 0

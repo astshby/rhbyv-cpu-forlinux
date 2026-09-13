@@ -7,6 +7,8 @@
   buffer 与未来阻塞式 Cache 的边界。
 - [软件测试栈与硬件交互解读](SOFTWARE_TEST_STACK_GUIDE.md)：跟踪 riscv-tests 从汇编、
   链接、ECALL/Trap 到 `tohost` PASS/FAIL 的完整路径。
+- [CoreMark 与性能指标解读](COREMARK_AND_PERFORMANCE.md)：解释裸机 C/BSP/port、周期
+  计时、CoreMark/MHz、CoreMark/LUT，以及仿真成绩与 FPGA 成绩的边界。
 
 新增理解文档时使用具体主题命名，优先链接源码和正式工作流，不在此重复阶段计划或
 提交日志；目标与阶段归入 roadmap，修改记录归入 `docs/COMMIT.md`。
