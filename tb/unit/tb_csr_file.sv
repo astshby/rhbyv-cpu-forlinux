@@ -15,7 +15,7 @@ module tb_csr_file;
     xlen_t read_data;
     logic write_valid;
     csr_addr_t write_addr;
-    xlen_t write_data;
+    xlen_t write_legal_data;
     logic retire_valid;
     logic trap_enter;
     xlen_t trap_pc;
@@ -33,7 +33,7 @@ module tb_csr_file;
         @(negedge clk);
         write_valid = 1'b1;
         write_addr = address;
-        write_data = data;
+        write_legal_data = data;
         @(posedge clk);
         @(negedge clk);
         write_valid = 1'b0;
@@ -43,7 +43,7 @@ module tb_csr_file;
         read_addr = '0;
         write_valid = 1'b0;
         write_addr = '0;
-        write_data = '0;
+        write_legal_data = '0;
         retire_valid = 1'b0;
         trap_enter = 1'b0;
         trap_pc = '0;
@@ -64,7 +64,7 @@ module tb_csr_file;
         write_csr(CSR_MSCRATCH, xlen_t'(32'h1234_5678));
         read_addr = CSR_MSCRATCH; #1;
         assert (read_data == xlen_t'(32'h1234_5678)) else $fatal(1, "MSCRATCH state");
-        write_csr(CSR_MTVEC, xlen_t'(32'h103));
+        write_csr(CSR_MTVEC, xlen_t'(32'h100));
         assert (mtvec == xlen_t'(32'h100)) else $fatal(1, "MTVEC direct mode alignment");
 
         read_addr = CSR_MCYCLE; #1;
@@ -82,7 +82,7 @@ module tb_csr_file;
         assert (read_data == xlen_t'(1)) else $fatal(1, "MINSTRET increment");
 
         // 先打开 MIE，验证 trap 保存到 MPIE，随后 MRET 能恢复原中断状态。
-        write_csr(CSR_MSTATUS, xlen_t'(32'h8));
+        write_csr(CSR_MSTATUS, xlen_t'(32'h1808));
         read_addr = CSR_MSTATUS; #1;
         assert (read_data[3] == 1'b1 && read_data[7] == 1'b0)
             else $fatal(1, "MSTATUS writable interrupt state");

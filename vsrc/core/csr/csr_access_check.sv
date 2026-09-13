@@ -1,5 +1,6 @@
 // Module: csr_access_check
 // Description: Validates implemented M-mode CSR addresses and write permission.
+// csr检测，比如布线检查（有些没有声明），权限检查（有些寄存器read-only），等等
 module csr_access_check (
     input  core_types_pkg::csr_addr_t address,
     input  logic                      write_intent,
@@ -20,7 +21,7 @@ module csr_access_check (
                 implemented = 1'b0;
         endcase
         read_only = (address == CSR_MISA) || (address == CSR_MHARTID) ||
-                    (address[11:10] == 2'b11);
+                    (address[11:10] == 2'b11); // 0xFxx 区域只读,0xBxx 不是只读
         illegal = !implemented || (write_intent && read_only);
     end
 endmodule

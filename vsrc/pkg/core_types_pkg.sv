@@ -59,8 +59,8 @@ package core_types_pkg;
         logic          mem_read;
         logic          mem_write;
         logic          load_unsigned;//加载数据扩展
-        logic          csr_valid;//csr是否使用，是否写入rd，是否用立即数/rs1,种类少是因为这个真的就只有这点。
-        logic          csr_imm;
+        logic          csr_valid; //csr是否使用，是否写入rd，是否用立即数/rs1,种类少是因为这个真的就只有这点。
+        logic          csr_imm; //类似load_unsigned，csr是否使用立即数/rs1
         logic          csr_write;
         logic          illegal;//是否非法指令
     } uop_t; //micro-op

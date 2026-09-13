@@ -1,5 +1,5 @@
 // Module: tb_riscv_test
-// Description: Loads an upstream riscv-test image and reports its MMIO PASS/FAIL result.
+// Description: Loads an upstream riscv-test image and monitors its tohost PASS/FAIL Store.
 module tb_riscv_test;
     timeunit 1ns;
     timeprecision 1ps;
@@ -15,6 +15,11 @@ module tb_riscv_test;
     logic commit_rd_we;
     logic [XLEN-1:0] commit_rd_data;
     logic commit_exception;
+    logic dmem_store_fire;
+    logic [XLEN-1:0] dmem_store_addr;
+    logic [XLEN-1:0] dmem_store_data;
+    logic [DBUS_BYTES-1:0] dmem_store_strb;
+    logic [XLEN-1:0] result_addr;
     logic test_done;
     logic test_pass;
     logic [31:0] test_code;
@@ -27,12 +32,15 @@ module tb_riscv_test;
 
     always #5 clk = ~clk;
     sim_cpu_top dut (.*);
+    store_result_monitor u_result_monitor (.*);
 
     initial begin
         if (!$value$plusargs("IMEM=%s", imem_path))
             $fatal(1, "missing +IMEM=<path>");
         if (!$value$plusargs("DMEM=%s", dmem_path))
             $fatal(1, "missing +DMEM=<path>");
+        if (!$value$plusargs("TOHOST=%h", result_addr))
+            $fatal(1, "missing +TOHOST=<address>");
         if (!$value$plusargs("TEST=%s", test_name))
             test_name = "unnamed";
         if (!$value$plusargs("MAX_CYCLES=%d", max_cycles))
@@ -45,7 +53,7 @@ module tb_riscv_test;
         @(negedge clk);
         rst = 1'b0;
         for (cycles = 0; cycles < max_cycles; cycles = cycles + 1) begin
-            // 下降沿观察上升沿已经完成的提交与 MMIO 状态，避免 NBA 调度竞争。
+            // 下降沿观察上升沿已经完成的提交与 tohost 状态，避免 NBA 调度竞争。
             @(negedge clk);
             if (trace_enable && commit_valid)
                 $display("COMMIT pc=%h inst=%h rd=%0d we=%0b data=%h exc=%0b",

@@ -33,7 +33,7 @@ module core (
     import pipeline_pkg::*;
     import riscv_priv_pkg::*;
 
-    // 1. 六级流水线的五组级间寄存器；_q 表示真正的时序状态。
+    // 六级流水线的五组级间寄存器；_q 表示真正的时序状态。
     if_d1_t if_d1_q;
     d1_d2_t d1_d2_q;
     d2_ex_t d2_ex_q;
@@ -46,7 +46,7 @@ module core (
     ex_mem_t ex_packet;
     mem_wb_t mem_packet;
 
-    // 2. 预测、重定向与错误路径清理。
+    // 预测、重定向与错误路径清理。
     pred_info_t prediction;
     redirect_t d1_redirect;
     redirect_t ex_redirect;
@@ -60,21 +60,16 @@ module core (
     logic predictor_overflow;
     logic predictor_flush;
 
-    // 3. GPR 读写和前递。
+    // GPR 读写和前递。
     xlen_t rs1_data;
     xlen_t rs2_data;
-    logic gpr_write_enable;
-    gpr_addr_t gpr_write_addr;
-    xlen_t gpr_write_data;
-    logic mem_forward_valid;
-    gpr_addr_t mem_forward_addr;
-    xlen_t mem_forward_data;
+    gpr_forward_t mem_gpr_forward;
+    gpr_forward_t wb_gpr_write;
 
-    // 4. CSR 读取、旁路、提交与 Trap 状态。
+    // CSR 读取、旁路、提交与 Trap 状态。
     xlen_t csr_committed_data;
-    xlen_t csr_old_data;
-    logic csr_access_illegal;
-    logic csr_write_valid;
+    csr_forward_t mem_csr_forward;
+    csr_forward_t wb_csr_write;
     logic trap_enter;
     logic mret_commit;
     xlen_t trap_pc;
@@ -84,7 +79,7 @@ module core (
     xlen_t mtvec;
     xlen_t mepc;
 
-    // 5. 冒险、存储器反压、序列化与流水线动作。
+    // 冒险、存储器反压、序列化与流水线动作。
     logic load_use_stall;
     logic mem_request_stall;
     logic wb_wait;
@@ -93,11 +88,11 @@ module core (
     logic fetch_ready;
     logic d1_stage_advance;
     logic ex_stage_advance;
-    logic d1_serialize;
-    logic ex_serialize;
+    logic d1_serialize_req;
+    logic ex_serialize_req;
+    logic serialize_start;
     logic frontend_flush;
-    logic fetch_enable;
-    logic serial_pending_q;
+    logic fetch_request_enable;
 
     // 参数断言仅用于仿真与 lint。
 `ifndef SYNTHESIS
@@ -107,7 +102,7 @@ module core (
     end
 `endif
 
-    // 6. 更新放行：只有流水级真正推进时才训练，避免停顿包重复更新。
+    // D1/EX 已排除本级异常，Core 只在流水级真正推进时放行训练。
     // WB/EX 清除 D1 及其后续时，pending 中的年轻预测更新也必须作废。
     always_comb begin
         d1_stage_advance = if_d1_q.valid &&
@@ -117,11 +112,11 @@ module core (
         d1_update = d1_update_raw;
         ex_update = ex_update_raw;
         d1_update.valid = d1_update_raw.valid && d1_stage_advance;
-        ex_update.valid = ex_update_raw.valid && ex_stage_advance &&
-                          !ex_packet.exc.valid;
+        ex_update.valid = ex_update_raw.valid && ex_stage_advance;
         predictor_flush = (pipeline_actions.d1_d2 == PIPE_CLEAR);
     end
 
+    // 预测器裁决
     predictor_update_arbiter u_predictor_update_arbiter (
         .clk,
         .rst,
@@ -132,6 +127,7 @@ module core (
         .overflow(predictor_overflow)
     );
 
+    // 分支预测器
     predictor u_predictor (
         .clk,
         .rst,
@@ -149,43 +145,21 @@ module core (
     end
 `endif
 
-    // 7. 序列化检测：D1 识别译码异常/MRET，EX 补充 CSR、对齐和控制流异常。
-    always_comb begin
-        d1_serialize = if_d1_q.valid &&
-                       (d1_packet.exc.valid || (d1_packet.uop.sys_op == SYS_MRET));
-        ex_serialize = d2_ex_q.valid && ex_packet.exc.valid;
-    end
+    // 各功能单元与流水级连线。
+    // 异常序列化处理开始时清除年轻取指，并持续停取指直到 WB Trap/MRET 重定向。
+    serialize_controller u_serialize_controller (
+        .clk,
+        .rst,
+        .serialize_start,
+        .serialize_complete(wb_redirect.valid),
+        .frontend_flush,
+        .fetch_request_enable
+    );
 
-    // 8. IF/MEM 接口控制：flush 只杀死年轻取指，真正的 Trap PC 在 WB 才确定。
-    always_comb begin
-        fetch_ready = (pipeline_actions.if_d1 != PIPE_HOLD);
-        frontend_flush = (pipeline_actions.if_d1 == PIPE_CLEAR) &&
-                         !selected_redirect.valid;
-        fetch_enable = !serial_pending_q && !frontend_flush;
-        // WB 等 Load 响应或正在提交重定向时，禁止 MEM 发出新请求。
-        mem_issue_enable = !wb_wait && !wb_redirect.valid;
-    end
-
-    // 9. CSR 旁路：较新的 EX/MEM 写优先于 MEM/WB，旁路值已通过 WARL 合法化。
-    always_comb begin
-        csr_old_data = csr_committed_data;
-        if (mem_wb_q.valid && mem_wb_q.csr_we && !mem_wb_q.exc.valid &&
-            (mem_wb_q.csr_addr == d2_ex_q.csr_addr))
-            csr_old_data = mem_wb_q.csr_new;
-        if (ex_mem_q.valid && ex_mem_q.csr_we && !ex_mem_q.exc.valid &&
-            (ex_mem_q.csr_addr == d2_ex_q.csr_addr))
-            csr_old_data = ex_mem_q.csr_new;
-
-        // CSR 只能在 WB 包及其可能需要的响应真正完整时提交一次。
-        csr_write_valid = commit_valid && mem_wb_q.csr_we &&
-                          !mem_wb_q.exc.valid;
-    end
-
-    // 10. 各功能单元与流水级连线。
     if_stage u_if_stage (
         .clk,
         .rst,
-        .fetch_enable,
+        .fetch_request_enable,
         .out_ready(fetch_ready),
         .flush(frontend_flush),
         .redirect(selected_redirect),
@@ -203,7 +177,8 @@ module core (
         .in_packet(if_d1_q),
         .out_packet(d1_packet),
         .redirect(d1_redirect),
-        .pred_update(d1_update_raw)
+        .pred_update(d1_update_raw),
+        .serialize_req(d1_serialize_req)
     );
 
     regfile u_regfile (
@@ -212,9 +187,9 @@ module core (
         .rs2_addr(d1_d2_q.rs2),
         .rs1_data,
         .rs2_data,
-        .write_enable(gpr_write_enable),
-        .write_addr(gpr_write_addr),
-        .write_data(gpr_write_data)
+        .write_enable(wb_gpr_write.valid),
+        .write_addr(wb_gpr_write.addr),
+        .write_data(wb_gpr_write.data)
     );
 
     d2_stage u_d2_stage (
@@ -226,29 +201,38 @@ module core (
 
     ex_stage u_ex_stage (
         .in_packet(d2_ex_q),
-        .mem_forward_valid,
-        .mem_forward_addr,
-        .mem_forward_data,
-        .wb_forward_valid(gpr_write_enable),
-        .wb_forward_addr(gpr_write_addr),
-        .wb_forward_data(gpr_write_data),
-        .csr_old_data,
-        .csr_access_illegal,
+        .mem_gpr_forward,
+        .wb_gpr_forward(wb_gpr_write),
+        .csr_committed_data,
+        .mem_csr_forward,
+        .wb_csr_forward(wb_csr_write),
         .out_packet(ex_packet),
         .redirect(ex_redirect),
-        .pred_update(ex_update_raw)
+        .pred_update(ex_update_raw),
+        .serialize_req(ex_serialize_req)
     );
 
-    csr_access_check u_csr_access_check (
-        .address(d2_ex_q.csr_addr),
-        .write_intent(d2_ex_q.uop.csr_write),
-        .implemented(),
-        .read_only(),
-        .illegal(csr_access_illegal)
+    csr_file u_csr_file (
+        .clk,
+        .rst,
+        .read_addr(d2_ex_q.csr_addr),
+        .read_data(csr_committed_data),
+        .write_valid(wb_csr_write.valid),
+        .write_addr(wb_csr_write.addr),
+        .write_legal_data(wb_csr_write.data),
+        .retire_valid,
+        .trap_enter,
+        .trap_pc,
+        .trap_cause,
+        .trap_tval,
+        .mret_commit,
+        .mtvec,
+        .mepc
     );
 
     mem_stage u_mem_stage (
         .issue_enable(mem_issue_enable),
+        .request_stall(mem_request_stall),
         .in_packet(ex_mem_q),
         .dmem_req_valid,
         .dmem_req_write,
@@ -257,10 +241,8 @@ module core (
         .dmem_req_wstrb,
         .dmem_req_ready,
         .out_packet(mem_packet),
-        .request_stall(mem_request_stall),
-        .forward_valid(mem_forward_valid),
-        .forward_addr(mem_forward_addr),
-        .forward_data(mem_forward_data)
+        .gpr_forward(mem_gpr_forward),
+        .csr_forward(mem_csr_forward)
     );
 
     wb_stage u_wb_stage (
@@ -269,9 +251,8 @@ module core (
         .dmem_rsp_rdata,
         .dmem_rsp_ready,
         .wait_for_response(wb_wait),
-        .gpr_write_enable,
-        .gpr_write_addr,
-        .gpr_write_data,
+        .gpr_write(wb_gpr_write),
+        .csr_write(wb_csr_write),
         .commit_valid,
         .commit_pc,
         .commit_inst,
@@ -295,24 +276,6 @@ module core (
         .redirect(wb_redirect)
     );
 
-    csr_file u_csr_file (
-        .clk,
-        .rst,
-        .read_addr(d2_ex_q.csr_addr),
-        .read_data(csr_committed_data),
-        .write_valid(csr_write_valid),
-        .write_addr(mem_wb_q.csr_addr),
-        .write_data(mem_wb_q.csr_new),
-        .retire_valid,
-        .trap_enter,
-        .trap_pc,
-        .trap_cause,
-        .trap_tval,
-        .mret_commit,
-        .mtvec,
-        .mepc
-    );
-
     hazard_unit u_hazard_unit (
         .producer(d2_ex_q),
         .consumer(d1_d2_q),
@@ -323,16 +286,19 @@ module core (
         .wb_redirect,
         .ex_redirect,
         .d1_redirect,
-        .ex_serialize,
-        .d1_serialize,
+        .ex_serialize_req,
+        .d1_serialize_req,
         .wb_wait,
         .mem_request_stall,
         .load_use_stall,
         .redirect(selected_redirect),
+        .serialize_start,
+        .fetch_ready,
+        .mem_issue_enable,
         .actions(pipeline_actions)
     );
 
-    // 11. 流水级间寄存器：每个寄存器独立处理 ADVANCE/HOLD/CLEAR。
+    // 流水级间寄存器：每个寄存器独立处理 ADVANCE/HOLD/CLEAR。
     always_ff @(posedge clk) begin
         if (rst)
             if_d1_q <= '0;
@@ -376,13 +342,5 @@ module core (
             mem_wb_q.valid <= 1'b0;
         else if (pipeline_actions.mem_wb == PIPE_ADVANCE)
             mem_wb_q <= mem_packet;
-    end
-
-    // 12. 精确异常序列化：发现后停止新取指，直到该指令在 WB 产生 Trap/MRET 重定向。
-    always_ff @(posedge clk) begin
-        if (rst || wb_redirect.valid)
-            serial_pending_q <= 1'b0;
-        else if (frontend_flush)
-            serial_pending_q <= 1'b1;
     end
 endmodule

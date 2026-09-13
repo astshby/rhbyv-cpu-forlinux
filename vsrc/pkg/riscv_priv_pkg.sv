@@ -7,6 +7,8 @@ package riscv_priv_pkg;
     localparam logic [31:0] INST_MRET = 32'h3020_0073; // 从机器模式 trap 处理程序返回
 
     // 中断异常相关csr
+    // 地址类似：0x3xx → M-mode trap/setup ，0xBxx → M-mode counters，0xFxx → M-mode information / read-only 区域
+    // trap必须：mstatus:原状态 -> mepc:trap指令地址,mcause:trap原因,mtval:trap相关值,mtvec:trap后访问地址,mscratch:trap处理程序临时寄存器
     localparam logic [11:0] CSR_MSTATUS  = 12'h300; // 机器模式状态与全局中断控制
     localparam logic [11:0] CSR_MISA     = 12'h301; // 处理器 XLEN 和已实现的 ISA 扩展
     localparam logic [11:0] CSR_MIE      = 12'h304; // 机器模式各类中断使能
@@ -25,14 +27,12 @@ package riscv_priv_pkg;
     localparam logic [11:0] CSR_MIMPID    = 12'hF13; // 实现版本编号；当前实现固定返回 0
     localparam logic [11:0] CSR_MHARTID  = 12'hF14; // 当前硬件线程标识
 
-    // mstatus 寄存器位域定义
+    // mstatus 寄存器位定义,仅仅这些地方写入mstatus，其他位写入0
     localparam int unsigned MSTATUS_MIE_BIT  = 3;  // 机器模式全局中断使能
     localparam int unsigned MSTATUS_MPIE_BIT = 7;  // trap 进入前的 MIE 备份
     localparam int unsigned MSTATUS_MPP_LSB  = 11; // trap 进入前的特权级低位
     localparam int unsigned MSTATUS_MPP_MSB  = 12; // trap 进入前的特权级高位
-    localparam int unsigned MCAUSE_INTERRUPT_BIT = XLEN - 1; // 1 表示中断，0 表示异常
-
-    // mie/mip 寄存器位域定义
+    // mie/mip 寄存器位定义
     localparam int unsigned MIE_MSIE_BIT = 3;  // 机器软件中断使能
     localparam int unsigned MIE_MTIE_BIT = 7;  // 机器定时器中断使能
     localparam int unsigned MIE_MEIE_BIT = 11; // 机器外部中断使能
@@ -40,9 +40,9 @@ package riscv_priv_pkg;
     localparam int unsigned MIP_MTIP_BIT = 7;  // 机器定时器中断等待
     localparam int unsigned MIP_MEIP_BIT = 11; // 机器外部中断等待
 
-    // trap必须：mstatus:原状态 -> mepc:trap指令地址,mcause:trap原因,mtval:trap相关值,mtvec:trap后访问地址。
-    // 地址类似：0x3xx → M-mode trap/setup ，0xBxx → M-mode counters，0xFxx → M-mode information / read-only 区域
     // 以下位trap相关返回的原因(mcause)
+    // mcause 寄存器位定义
+    localparam int unsigned MCAUSE_INTERRUPT_BIT = XLEN - 1; // 1 表示中断，0 表示异常
     // 异常返回编码
     typedef enum logic [4:0] {
         EXC_INST_ADDR_MISALIGNED  = 5'd0, // 指令地址未对齐

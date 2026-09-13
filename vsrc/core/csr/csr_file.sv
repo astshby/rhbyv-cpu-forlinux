@@ -1,26 +1,28 @@
 // Module: csr_file
 // Description: Implements the minimal machine CSR state, counters, trap entry, and MRET state.
+// 真正的csr文件
 module csr_file (
     input  logic                         clk,
     input  logic                         rst,
-    input  core_types_pkg::csr_addr_t   read_addr,
-    output core_types_pkg::xlen_t       read_data,
+    input  core_types_pkg::csr_addr_t    read_addr,
+    output core_types_pkg::xlen_t        read_data,
     input  logic                         write_valid,
-    input  core_types_pkg::csr_addr_t   write_addr,
-    input  core_types_pkg::xlen_t       write_data,
-    input  logic                         retire_valid,
-    input  logic                         trap_enter,
-    input  core_types_pkg::xlen_t       trap_pc,
-    input  riscv_priv_pkg::exc_cause_e  trap_cause,
-    input  core_types_pkg::xlen_t       trap_tval,
-    input  logic                         mret_commit,
-    output core_types_pkg::xlen_t       mtvec,
-    output core_types_pkg::xlen_t       mepc
+    input  core_types_pkg::csr_addr_t    write_addr,
+    input  core_types_pkg::xlen_t        write_legal_data,
+    input  logic                         trap_enter,  // trap必要（暂时：ecall，ebreak）
+    input  core_types_pkg::xlen_t        trap_pc,
+    input  riscv_priv_pkg::exc_cause_e   trap_cause,
+    input  core_types_pkg::xlen_t        trap_tval,
+    input  logic                         mret_commit, // mret必要
+    input  logic                         retire_valid, //指令计数相关
+    output core_types_pkg::xlen_t        mtvec,
+    output core_types_pkg::xlen_t        mepc
 );
     import core_config_pkg::*;
     import core_types_pkg::*;
     import riscv_priv_pkg::*;
 
+    // 暂时实现8个寄存器，其余只读用‘wire’(misa/mvendorid/marchid/mimpid/mhartid)。
     xlen_t mstatus_q, mstatus_d;
     xlen_t mtvec_q, mtvec_d;
     xlen_t mscratch_q, mscratch_d;
@@ -29,8 +31,8 @@ module csr_file (
     xlen_t mtval_q, mtval_d;
     xlen_t mcycle_q, mcycle_d;
     xlen_t minstret_q, minstret_d;
-    xlen_t legal_write_data;
 
+    // misa 只读，通过函数写入值
     function automatic xlen_t misa_value();
         xlen_t value;
         value = '0;
@@ -39,16 +41,12 @@ module csr_file (
         return value;
     endfunction
 
+    // 必须给出mtevc与mepc的值，trap_controller中使用
     assign mtvec = mtvec_q;
     assign mepc = mepc_q;
 
-    csr_warl u_csr_warl (
-        .address(write_addr),
-        .proposed_value(write_data),
-        .legal_value(legal_write_data)
-    );
-
-    // 1. CSR 读取：只暴露 A4 已实现的机器级状态和只读标识。
+    // 以下得_d连线，连线后写入寄存器
+    // CSR 读取：只暴露 A4 已实现的机器级状态和只读标识。
     always_comb begin
         unique case (read_addr)
             CSR_MSTATUS:  read_data = mstatus_q;
@@ -66,7 +64,8 @@ module csr_file (
         endcase
     end
 
-    // 2. Trap CSR 下一状态：普通 CSR 写 < MRET < trap，最老的 trap 优先级最高。
+    // Trap CSR 下一状态：普通 CSR 写 < MRET < trap，最老的 trap 优先级最高。
+    // 普通写入值已在 EX 完成 WARL；Trap/MRET 按架构语义直接更新多个状态位。
     always_comb begin
         mstatus_d = mstatus_q;
         mtvec_d = mtvec_q;
@@ -77,12 +76,12 @@ module csr_file (
 
         if (write_valid) begin
             unique case (write_addr)
-                CSR_MSTATUS:  mstatus_d = legal_write_data;
-                CSR_MTVEC:    mtvec_d = legal_write_data;
-                CSR_MSCRATCH: mscratch_d = legal_write_data;
-                CSR_MEPC:     mepc_d = legal_write_data;
-                CSR_MCAUSE:   mcause_d = legal_write_data;
-                CSR_MTVAL:    mtval_d = legal_write_data;
+                CSR_MSTATUS:  mstatus_d = write_legal_data;
+                CSR_MTVEC:    mtvec_d = write_legal_data;
+                CSR_MSCRATCH: mscratch_d = write_legal_data;
+                CSR_MEPC:     mepc_d = write_legal_data;
+                CSR_MCAUSE:   mcause_d = write_legal_data;
+                CSR_MTVAL:    mtval_d = write_legal_data;
                 default: ;
             endcase
         end
@@ -103,7 +102,7 @@ module csr_file (
         end
     end
 
-    // 3. 计数器下一状态：每拍增加 MCYCLE，只有正常退休才增加 MINSTRET；显式写入优先。
+    // 性能计数器下一状态：每拍增加 MCYCLE，只有正常退休才增加 MINSTRET；显式写入优先(同样后覆盖)。
     always_comb begin
         mcycle_d = mcycle_q + xlen_t'(1);
         minstret_d = minstret_q;
@@ -112,13 +111,14 @@ module csr_file (
 
         if (write_valid) begin
             if (write_addr == CSR_MCYCLE)
-                mcycle_d = legal_write_data;
+                mcycle_d = write_legal_data;
             if (write_addr == CSR_MINSTRET)
-                minstret_d = legal_write_data;
+                minstret_d = write_legal_data;
         end
     end
 
-    // 4. Trap 相关状态寄存器。
+    // 正式写入寄存器
+    // Trap 相关状态寄存器。
     always_ff @(posedge clk) begin
         if (rst) begin
             mstatus_q <= xlen_t'(32'h0000_1800);
@@ -137,7 +137,7 @@ module csr_file (
         end
     end
 
-    // 5. 性能计数器独立保存，避免与 trap 状态混在同一时序块中。
+    // 性能计数器的寄存器。
     always_ff @(posedge clk) begin
         if (rst) begin
             mcycle_q <= '0;

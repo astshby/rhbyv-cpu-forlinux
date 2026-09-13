@@ -15,6 +15,7 @@ for tb_path in tb/core/tb_*.sv; do
         -Mdir "${out_dir}" \
         -f scripts/sim_files.f \
         tb/common/rv_asm_pkg.sv \
+        tb/common/store_result_monitor.sv \
         "${tb_path}" \
         --top-module "${test_name}" \
         >"logs/${test_name}-rv${xlen}.log" 2>&1

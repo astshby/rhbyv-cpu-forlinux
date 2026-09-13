@@ -6,6 +6,7 @@ module tb_core_rv32i;
     timeprecision 1ps;
 
     import core_config_pkg::*;
+    import core_types_pkg::*;
     import rv_asm_pkg::*;
 
     logic clk = 1'b0;
@@ -17,6 +18,11 @@ module tb_core_rv32i;
     logic commit_rd_we;
     logic [XLEN-1:0] commit_rd_data;
     logic commit_exception;
+    logic dmem_store_fire;
+    logic [XLEN-1:0] dmem_store_addr;
+    logic [XLEN-1:0] dmem_store_data;
+    logic [DBUS_BYTES-1:0] dmem_store_strb;
+    logic [XLEN-1:0] result_addr;
     logic test_done;
     logic test_pass;
     logic [31:0] test_code;
@@ -28,6 +34,8 @@ module tb_core_rv32i;
     // dut:device under test:待测试设备，使用sim_top模块实例化，
     // .*表示端口自动连接(也就是把sim_cpu_top存在端口与tb定义的端口对应连接)
     sim_cpu_top dut (.*);
+    assign result_addr = xlen_t'(TEST_RESULT_ADDR);
+    store_result_monitor u_result_monitor (.*);
 
     initial begin
         if (XLEN != 32) begin
@@ -54,11 +62,11 @@ module tb_core_rv32i;
         dut.u_imem.mem[14] = enc_addi(5'd10, 5'd0, -1);
         dut.u_imem.mem[15] = enc_addi(5'd10, 5'd0, 56);
         dut.u_imem.mem[16] = enc_bne(5'd8, 5'd10, 20);
-        dut.u_imem.mem[17] = enc_lui(5'd11, 20'h10000);
+        dut.u_imem.mem[17] = enc_lui(5'd11, TEST_RESULT_ADDR[31:12]);
         dut.u_imem.mem[18] = enc_addi(5'd12, 5'd0, 1);
         dut.u_imem.mem[19] = enc_sw(5'd12, 5'd11, 0);
         dut.u_imem.mem[20] = enc_jal(5'd0, 0);
-        dut.u_imem.mem[21] = enc_lui(5'd11, 20'h10000);
+        dut.u_imem.mem[21] = enc_lui(5'd11, TEST_RESULT_ADDR[31:12]);
         dut.u_imem.mem[22] = enc_addi(5'd12, 5'd0, 2);
         dut.u_imem.mem[23] = enc_sw(5'd12, 5'd11, 0);
         dut.u_imem.mem[24] = enc_jal(5'd0, 0);

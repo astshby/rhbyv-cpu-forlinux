@@ -12,9 +12,8 @@ module mem_stage (
     output logic [core_config_pkg::DBUS_BYTES-1:0] dmem_req_wstrb,
     input  logic                              dmem_req_ready,
     output pipeline_pkg::mem_wb_t             out_packet,
-    output logic                              forward_valid,
-    output core_types_pkg::gpr_addr_t         forward_addr,
-    output core_types_pkg::xlen_t             forward_data
+    output pipeline_pkg::gpr_forward_t        gpr_forward,
+    output pipeline_pkg::csr_forward_t        csr_forward
 );
     import core_types_pkg::*;
 
@@ -24,7 +23,7 @@ module mem_stage (
     xlen_t store_wdata;
     logic [core_config_pkg::DBUS_BYTES-1:0] store_wstrb;
 
-    // 1. Store 数据根据地址低位移到对应字节通道。
+    // Store 数据根据地址低位移到对应字节通道。
     store_unit u_store_unit (
         .store_data(in_packet.store_data),
         .address(in_packet.result),
@@ -33,7 +32,7 @@ module mem_stage (
         .bus_wstrb(store_wstrb)
     );
 
-    // 2. DMem 请求：只有合法且无异常的 Load/Store 才能访问存储器。
+    // DMem 请求：只有合法且无异常的 Load/Store 才能访问存储器。
     always_comb begin
         memory_request = in_packet.valid &&
                          (in_packet.uop.mem_read || in_packet.uop.mem_write) &&
@@ -50,7 +49,7 @@ module mem_stage (
         request_stall = dmem_req_valid && !dmem_req_ready;
     end
 
-    // 3. 输出打包：Load 只携带地址进入 WB，返回数据不在 MEM 等待。
+    // 输出打包：Load 只携带地址进入 WB，返回数据不在 MEM 等待。
     always_comb begin
         out_packet = '0;
         out_packet.valid = issue_enable && in_packet.valid && packet_can_advance;
@@ -67,17 +66,25 @@ module mem_stage (
         out_packet.exc = in_packet.exc;
     end
 
-    // 4. MEM 前递：Load 必须等待 WB 响应，其他写回结果可直接前递。
+    // MEM 前递：Load 必须等待 WB 响应，其他写回结果可直接前递。
     always_comb begin
         unique case (in_packet.uop.wb_sel)
-            WB_SEQ_PC: forward_data = in_packet.seq_pc;
-            WB_CSR:    forward_data = in_packet.csr_old;
-            default:   forward_data = in_packet.result;
+            WB_SEQ_PC: gpr_forward.data = in_packet.seq_pc;
+            WB_CSR:    gpr_forward.data = in_packet.csr_old;
+            default:   gpr_forward.data = in_packet.result;
         endcase
         // Store 不写 GPR；Load 的数据此时尚未返回。
-        forward_valid = out_packet.valid && in_packet.uop.gpr_write &&
-                        (in_packet.uop.wb_sel != WB_LOAD) &&
-                        !in_packet.exc.valid && !in_packet.uop.illegal;
-        forward_addr = in_packet.rd;
+        gpr_forward.valid = out_packet.valid && in_packet.uop.gpr_write &&
+                            (in_packet.uop.wb_sel != WB_LOAD) &&
+                            !in_packet.exc.valid && !in_packet.uop.illegal;
+        gpr_forward.addr = in_packet.rd;
+    end
+
+    // CSR 前递携带 EX 已完成 WARL 合法化的新值。
+    always_comb begin
+        csr_forward.valid = out_packet.valid && in_packet.csr_we &&
+                            !in_packet.exc.valid;
+        csr_forward.addr = in_packet.csr_addr;
+        csr_forward.data = in_packet.csr_new;
     end
 endmodule

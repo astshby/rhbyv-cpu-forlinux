@@ -5,11 +5,11 @@ module d1_stage (
     input  pipeline_pkg::if_d1_t     in_packet,
     output pipeline_pkg::d1_d2_t     out_packet,
     output pipeline_pkg::redirect_t  redirect,
-    output pipeline_pkg::pred_update_t pred_update
+    output pipeline_pkg::pred_update_t pred_update,
+    output logic                       serialize_req
 );
     import core_types_pkg::*;
     import pipeline_pkg::*;
-    import riscv_priv_pkg::*;
 
     uop_t uop;
     gpr_addr_t rs1;
@@ -34,38 +34,26 @@ module d1_stage (
         .imm
     );
 
-    // 1. 无寄存器依赖的目标地址：唯一在 D1 提前处理的 J 指令是 JAL。
+    // 无寄存器依赖的目标地址：唯一在 D1 提前处理的 J 指令是 JAL。
     always_comb begin
         jal_target = in_packet.pc + imm;
     end
 
-    // 2. D1 异常：按优先级记录最早发现的异常，后续流水级只允许补充而不能覆盖。
+    // D1 异常在控制流处理之前完成，异常指令不会产生预测更新或提前重定向。
+    d1_exception_check u_d1_exception_check (
+        .in_packet,
+        .uop,
+        .jal_target,
+        .exception(decoded_exc)
+    );
+
+    // 译码异常和 MRET 都要先清除年轻指令，再等待 WB 完成 Trap/返回。
     always_comb begin
-        decoded_exc = '0;
-        if (in_packet.valid) begin
-            if (in_packet.pc[1:0] != 2'b00) begin
-                decoded_exc.valid = 1'b1;
-                decoded_exc.cause = EXC_INST_ADDR_MISALIGNED;
-                decoded_exc.tval = in_packet.pc;
-            end else if (uop.illegal) begin
-                decoded_exc.valid = 1'b1;
-                decoded_exc.cause = EXC_ILLEGAL_INST;
-                decoded_exc.tval = xlen_t'(in_packet.inst);
-            end else if (uop.sys_op == SYS_ECALL) begin
-                decoded_exc.valid = 1'b1;
-                decoded_exc.cause = EXC_ECALL_M;
-            end else if (uop.sys_op == SYS_EBREAK) begin
-                decoded_exc.valid = 1'b1;
-                decoded_exc.cause = EXC_BREAKPOINT;
-            end else if ((uop.branch_op == BR_JAL) && (jal_target[1:0] != 2'b00)) begin
-                decoded_exc.valid = 1'b1;
-                decoded_exc.cause = EXC_INST_ADDR_MISALIGNED;
-                decoded_exc.tval = jal_target;
-            end
-        end
+        serialize_req = in_packet.valid &&
+                        (decoded_exc.valid || (uop.sys_op == SYS_MRET));
     end
 
-    // 3. JAL 控制：JAL 不进入 GHR，但需要写入 BTB；真正推进时由 core 放行更新。
+    // JAL 控制：JAL 不进入 GHR，但需要写入 BTB；真正推进时由 core 放行更新。
     always_comb begin
         pred_update = '0;
         redirect = '0;
@@ -86,7 +74,7 @@ module d1_stage (
         end
     end
 
-    // 4. 输出打包：uOp 保存静态控制，exc 保存随流水线传播的动态异常。
+    // 输出打包：uOp 保存静态控制，exc 保存随流水线传播的动态异常。
     always_comb begin
         out_packet = '0;
         out_packet.valid = in_packet.valid;

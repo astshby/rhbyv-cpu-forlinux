@@ -267,7 +267,8 @@ module decoder (
                         INST_MRET:   begin uop.sys_op = SYS_MRET;   uop.illegal = 1'b0; end
                         default: ;
                     endcase
-                end else begin
+                end
+                else begin
                     unique case (funct3)
                         F3_SYSTEM_CSRRW, F3_SYSTEM_CSRRWI: begin
                             uop.csr_cmd = CSR_RW;
@@ -289,7 +290,7 @@ module decoder (
                     if (!uop.illegal) begin
                         uop.fu = FU_CSR;
                         uop.csr_valid = 1'b1;
-                        uop.csr_imm = funct3[2];
+                        uop.csr_imm = funct3[2]; //imm由高位指定
                         uop.rs1_used = !funct3[2] && (rs1 != '0);
                         uop.gpr_write = 1'b1;
                         uop.wb_sel = WB_CSR;

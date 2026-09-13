@@ -1,8 +1,16 @@
-/build/
-/logs/
-/vivado-workspace/
-*.fst
-*.vcd
-*.jou
-*.log
-*.str
+# 根目录采用白名单：未明确列出的顶层文件和目录默认不进入版本库。
+/*
+!/.gitignore
+!/.gitmodules
+!/.github/
+!/AGENTS.md
+!/LICENSE
+!/Makefile
+!/README.md
+!/benchmark/
+!/constr/
+!/docs/
+!/ip/
+!/scripts/
+!/tb/
+!/vsrc/

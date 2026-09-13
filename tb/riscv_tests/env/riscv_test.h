@@ -5,6 +5,15 @@
 
 #include "encoding.h"
 
+// UI 是上游基础整数测试族名称；当前仍由本项目的 M-mode 环境承载。
+#define RVTEST_RV64U                                                    \
+  .macro init;                                                          \
+  .endm
+
+#define RVTEST_RV32U                                                    \
+  .macro init;                                                          \
+  .endm
+
 #define RVTEST_RV64M                                                    \
   .macro init;                                                          \
   .endm
@@ -56,12 +65,22 @@ _start:                                                                 \
   j reset_vector;                                                       \
   .align 2;                                                             \
 trap_vector:                                                            \
+  csrr t5, mcause;                                                      \
+  li t6, CAUSE_MACHINE_ECALL;                                           \
+  bne t5, t6, dispatch_test_trap;                                       \
+  li t5, 93;                                                            \
+  beq a7, t5, write_tohost;                                             \
+dispatch_test_trap:                                                     \
   la t5, mtvec_handler;                                                 \
   beqz t5, unexpected_trap;                                             \
-  jr t5;                                                                \
+  jr t5;                                                               \
 unexpected_trap:                                                        \
   li TESTNUM, 0x7ff;                                                    \
-  RVTEST_FAIL;                                                          \
+write_tohost:                                                           \
+  la t5, tohost;                                                        \
+  sw TESTNUM, 0(t5);                                                    \
+  sw zero, 4(t5);                                                       \
+  j write_tohost;                                                       \
 reset_vector:                                                           \
   INIT_XREG;                                                            \
   li TESTNUM, 0;                                                        \
@@ -76,11 +95,10 @@ reset_vector:                                                           \
 
 #define RVTEST_PASS                                                     \
   fence;                                                                \
-  li t5, 0x10000000;                                                    \
-  li t6, 1;                                                             \
-  sw t6, 0(t5);                                                         \
-1:                                                                      \
-  j 1b
+  li TESTNUM, 1;                                                        \
+  li a7, 93;                                                            \
+  li a0, 0;                                                             \
+  ecall
 
 #define RVTEST_FAIL                                                     \
   fence;                                                                \
@@ -89,13 +107,16 @@ reset_vector:                                                           \
 1:                                                                      \
   slli TESTNUM, TESTNUM, 1;                                             \
   ori TESTNUM, TESTNUM, 1;                                              \
-  li t5, 0x10000000;                                                    \
-  sw TESTNUM, 0(t5);                                                    \
-1:                                                                      \
-  j 1b
+  li a7, 93;                                                            \
+  addi a0, TESTNUM, 0;                                                  \
+  ecall
 
 #define RVTEST_DATA_BEGIN                                               \
   .section .data;                                                       \
+  .pushsection .tohost,"aw",@progbits;                                 \
+  .align 6; .global tohost; tohost: .dword 0; .size tohost, 8;          \
+  .align 6; .global fromhost; fromhost: .dword 0; .size fromhost, 8;    \
+  .popsection;                                                          \
   .align 4;                                                             \
   .global begin_signature;                                              \
 begin_signature:
