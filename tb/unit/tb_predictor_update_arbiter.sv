@@ -9,7 +9,7 @@ module tb_predictor_update_arbiter;
 
     logic clk = 1'b0;
     logic rst = 1'b1;
-    logic flush;
+    logic d1_flush;
     pred_update_t d1_update;
     pred_update_t ex_update;
     pred_update_t update;
@@ -21,7 +21,7 @@ module tb_predictor_update_arbiter;
     initial begin
         d1_update = '0;
         ex_update = '0;
-        flush = 1'b0;
+        d1_flush = 1'b0;
         repeat (2) @(posedge clk);
         @(negedge clk);
         rst = 1'b0;
@@ -56,12 +56,12 @@ module tb_predictor_update_arbiter;
         @(negedge clk);
         d1_update.valid = 1'b0;
         ex_update.valid = 1'b0;
-        flush = 1'b1;
+        d1_flush = 1'b1;
         #1;
         assert (!update.valid && !overflow) else $fatal(1, "flushed pending update");
         @(posedge clk);
         @(negedge clk);
-        flush = 1'b0;
+        d1_flush = 1'b0;
         #1;
         assert (!update.valid) else $fatal(1, "pending survived flush");
 

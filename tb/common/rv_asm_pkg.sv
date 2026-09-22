@@ -84,6 +84,47 @@ package rv_asm_pkg;
         enc_addi = enc_i(imm, rs1, F3_OP_IMM_ADDI, rd, OPCODE_OP_IMM);
     endfunction
 
+    // M 指令仍是 R 编码；独立语义封装避免测试中混淆 signed、高半积和 W 形式。
+    function automatic logic [31:0] enc_mul(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_MUL, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_mulh(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_MULH, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_mulhsu(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_MULHSU, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_mulhu(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_MULHU, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_div(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_DIV, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_divu(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_DIVU, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_rem(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_REM, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_remu(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_REMU, rd, OPCODE_OP);
+    endfunction
+    function automatic logic [31:0] enc_mulw(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_32_MULW, rd, OPCODE_OP_32);
+    endfunction
+    function automatic logic [31:0] enc_divw(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_32_DIVW, rd, OPCODE_OP_32);
+    endfunction
+    function automatic logic [31:0] enc_divuw(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_32_DIVUW, rd, OPCODE_OP_32);
+    endfunction
+    function automatic logic [31:0] enc_remw(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_32_REMW, rd, OPCODE_OP_32);
+    endfunction
+    function automatic logic [31:0] enc_remuw(input logic [4:0] rd, rs1, rs2);
+        return enc_r(F7_OP_MULDIV, rs2, rs1, F3_OP_32_REMUW, rd, OPCODE_OP_32);
+    endfunction
+
     function automatic logic [31:0] enc_lw(
         input logic [4:0] rd,
         input logic [4:0] rs1,

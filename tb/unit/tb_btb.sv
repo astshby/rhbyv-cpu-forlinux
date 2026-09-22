@@ -18,6 +18,7 @@ module tb_btb;
     xlen_t update_pc;
     xlen_t update_target;
     branch_op_e update_kind;
+    xlen_t alias_pc;
 
     always #5 clk = ~clk;
     btb dut (.*);
@@ -28,6 +29,7 @@ module tb_btb;
         update_pc = '0;
         update_target = '0;
         update_kind = BR_NONE;
+        alias_pc = xlen_t'(32'h100 + (BTB_ENTRIES * 4));
 
         repeat (2) @(posedge clk);
         @(negedge clk);
@@ -51,9 +53,9 @@ module tb_btb;
         assert (lookup_hit && lookup_target == xlen_t'(32'h180))
             else $fatal(1, "BTB stored entry");
 
-        // 0x100 与 0x140 索引相同，完整标签必须阻止别名误命中。
+        // 相差 BTB_ENTRIES 个指令的 PC 索引相同，完整标签必须阻止别名误命中。
         update_valid = 1'b1;
-        update_pc = xlen_t'(32'h140);
+        update_pc = alias_pc;
         update_target = xlen_t'(32'h1c0);
         update_kind = BR_EQ;
         #1;
@@ -62,7 +64,7 @@ module tb_btb;
         @(posedge clk);
         @(negedge clk);
         update_valid = 1'b0;
-        lookup_pc = xlen_t'(32'h140);
+        lookup_pc = alias_pc;
         #1;
         assert (lookup_hit && lookup_target == xlen_t'(32'h1c0) && lookup_kind == BR_EQ)
             else $fatal(1, "BTB replacement entry");

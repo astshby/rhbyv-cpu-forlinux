@@ -29,6 +29,9 @@ module tb_core_rv32i;
     integer idx;
     integer cycles;
 
+    // 成功时先跳出采样循环，统一结束仿真，避免继续执行循环后的超时路径。
+    logic completed = 1'b0;
+
     always #5 clk = ~clk;
 
     // dut:device under test:待测试设备，使用sim_top模块实例化，
@@ -82,9 +85,12 @@ module tb_core_rv32i;
             if (test_done) begin
                 assert (test_pass) else $fatal(1, "directed program failed code=%0d", test_code);
                 $display("PASS tb_core_rv32i cycles=%0d", cycles);
-                $finish;
+                completed = 1'b1;
+                break;
             end
         end
-        $fatal(1, "directed program timeout");
+        if (!completed)
+            $fatal(1, "directed program timeout");
+        $finish;
     end
 endmodule

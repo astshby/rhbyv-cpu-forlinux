@@ -31,6 +31,9 @@ module tb_core_predictor;
     integer branch_count;
     integer redirect_count;
 
+    // 成功时先跳出采样循环，统一结束仿真，避免继续执行循环后的超时路径。
+    logic completed = 1'b0;
+
     always #5 clk = ~clk;
     sim_cpu_top dut (.*);
     assign result_addr = xlen_t'(TEST_RESULT_ADDR);
@@ -79,9 +82,12 @@ module tb_core_predictor;
                 assert (redirect_count < 12)
                     else $fatal(1, "predictor did not converge redirects=%0d", redirect_count);
                 $display("PASS tb_core_predictor branches=%0d redirects=%0d", branch_count, redirect_count);
-                $finish;
+                completed = 1'b1;
+                break;
             end
         end
-        $fatal(1, "predictor program timeout");
+        if (!completed)
+            $fatal(1, "predictor program timeout");
+        $finish;
     end
 endmodule

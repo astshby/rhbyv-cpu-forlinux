@@ -29,6 +29,9 @@ module tb_core_zicsr;
     integer idx;
     integer cycles;
 
+    // 成功时先跳出采样循环，统一结束仿真，避免继续执行循环后的超时路径。
+    logic completed = 1'b0;
+
     always #5 clk = ~clk;
     sim_cpu_top dut (.*);
     assign result_addr = xlen_t'(TEST_RESULT_ADDR);
@@ -79,9 +82,12 @@ module tb_core_zicsr;
             if (test_done) begin
                 assert (test_pass) else $fatal(1, "Zicsr program failed code=%0d", test_code);
                 $display("PASS tb_core_zicsr RV%0d cycles=%0d", XLEN, cycles);
-                $finish;
+                completed = 1'b1;
+                break;
             end
         end
-        $fatal(1, "Zicsr directed program timeout");
+        if (!completed)
+            $fatal(1, "Zicsr directed program timeout");
+        $finish;
     end
 endmodule
