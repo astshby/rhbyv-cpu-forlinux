@@ -56,6 +56,7 @@ module tb_csr_file;
 
         read_addr = CSR_MISA; #1;
         assert (read_data[8]) else $fatal(1, "MISA must advertise I");
+        assert (read_data[12]) else $fatal(1, "MISA must advertise M");
         if (XLEN == 32)
             assert (read_data[31:30] == 2'b01) else $fatal(1, "RV32 MXL");
         else

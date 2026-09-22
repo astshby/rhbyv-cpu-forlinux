@@ -39,6 +39,9 @@ module tb_core_cache_wait;
     integer idx;
     integer cycles;
 
+    // 成功时先跳出采样循环，统一结束仿真，避免继续执行循环后的超时路径。
+    logic completed = 1'b0;
+
     always #5 clk = ~clk;
 
     core dut (.*);
@@ -116,9 +119,12 @@ module tb_core_cache_wait;
                 assert (commit_rd_data == xlen_t'(42) && request_count == 1)
                     else $fatal(1, "WB forwarding after delayed response");
                 $display("PASS tb_core_cache_wait cycles=%0d", cycles);
-                $finish;
+                completed = 1'b1;
+                break;
             end
         end
-        $fatal(1, "cache wait test timeout");
+        if (!completed)
+            $fatal(1, "cache wait test timeout");
+        $finish;
     end
 endmodule

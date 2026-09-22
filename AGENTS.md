@@ -49,16 +49,18 @@ make coremark XLEN=64
 `make test` excludes riscv-tests and benchmarks. Run benchmark targets when C
 runtime, CSR counters, ISA behavior, memory timing, or benchmark support changes.
 Do not edit `benchmark/coremark/vendor/coremark/`; port changes belong outside the
-vendor snapshot. Report exact PASS/SKIP counts and anything not run. Record stage
-changes, architectural or timing effects, affected files, and results in
-`docs/COMMIT.md`.
+vendor snapshot. Report exact PASS/SKIP counts and anything not run. Keep change,
+timing, affected-file, and test details in the review handoff. Do not maintain a
+local `docs/COMMIT.md`.
 
 ## Documentation Synchronization
 
-Update the matching `docs/` file whenever a target, feature, module responsibility,
-interface, directory, command, tool, or FPGA workflow changes. Keep `README.md`
-current. Separate hardware and software plans into their roadmaps. Maintain only
-this root `AGENTS.md`. Put explanatory learning notes under `docs/understand/`.
+Update maintained architecture or workflow documents only when the user requests
+it. Treat `README.md` as maintainer-authored content: read it for context, do not
+rewrite it automatically, and never add change-record or learning-note content
+to it. This repository must not contain `docs/COMMIT.md` or `docs/understand/`;
+their canonical home is the sibling `hgb-aisystem_riscv` repository. Maintain
+only this root `AGENTS.md`.
 
 ## Branches and Pull Requests
 
@@ -70,3 +72,8 @@ merges; contributors do not self-merge. Delete a stage branch only after its
 history is reachable from the reviewed target. Treat `riscv-tests/` as a
 read-only clone: never stage or modify it. Keep local adapters and test lists
 under `tb/riscv_tests/` or `scripts/`.
+
+Before a major rhbyv commit, create a matching purpose-specific branch in
+`../hgb-aisystem_riscv`, copy the applicable hardware source, tests, scripts,
+benchmark port, and hardware documents there, and submit the hgb branch as a PR.
+Do not overwrite hgb's repository-specific README, license, or software roadmap.

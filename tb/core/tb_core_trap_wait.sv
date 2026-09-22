@@ -42,6 +42,9 @@ module tb_core_trap_wait;
     logic load_committed;
     logic wait_observed;
 
+    // 成功时先跳出采样循环，统一结束仿真，避免继续执行循环后的超时路径。
+    logic completed = 1'b0;
+
     always #5 clk = ~clk;
 
     core dut (.*);
@@ -134,10 +137,13 @@ module tb_core_trap_wait;
                 assert (load_committed && wait_observed && request_count == 1)
                     else $fatal(1, "Load wait/ordering coverage incomplete");
                 $display("PASS tb_core_trap_wait RV%0d cycles=%0d", XLEN, cycles);
-                $finish;
+                completed = 1'b1;
+                break;
             end
         end
-        $fatal(1, "trap wait test timeout");
+        if (!completed)
+            $fatal(1, "trap wait test timeout");
+        $finish;
     end
 
     // 这些接口只用于保证 D-Cache 请求形态完整，本测试不根据其值判定结果。

@@ -28,6 +28,9 @@ module tb_core_branch_serialize_cancel;
     integer idx;
     integer cycles;
 
+    // 成功时先跳出采样循环，统一结束仿真，避免继续执行循环后的超时路径。
+    logic completed = 1'b0;
+
     always #5 clk = ~clk;
 
     sim_cpu_top dut (.*);
@@ -57,10 +60,13 @@ module tb_core_branch_serialize_cancel;
                     else $fatal(1, "wrong result after Branch serialization cancellation");
                 $display("PASS tb_core_branch_serialize_cancel RV%0d cycles=%0d",
                          XLEN, cycles);
-                $finish;
+                completed = 1'b1;
+                break;
             end
         end
-        $fatal(1, "Branch serialization cancellation timeout");
+        if (!completed)
+            $fatal(1, "Branch serialization cancellation timeout");
+        $finish;
     end
 
     logic unused_commit;
