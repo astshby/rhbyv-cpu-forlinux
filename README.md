@@ -22,7 +22,7 @@ Core 使用独立的指令和数据 ready/valid 接口，不直接实例化 FPGA
 - 适用的 riscv-tests：RV32 `58/58`，RV64 `78/78`，包括全部 8/13 项 UM；
   Zifencei 与未对齐直接完成用例明确 SKIP。
 - CoreMark 1.0 performance/validation CRC 均通过；当前默认 MDU 配置的 RV32 为
-  `2.471246 CoreMark/MHz`，RV64 为 `2.231733 CoreMark/MHz`。
+  `2.821267 CoreMark/MHz`，RV64 为 `2.490061 CoreMark/MHz`。
 
 当前完成的 M 扩展。下一步预计接入zynq7020与盘古676，同时添加uart等必要的rtl设计。
 未来目标：异步中断、总线与总线挂载、Cache、C扩展、S-mode 与 MMU。
