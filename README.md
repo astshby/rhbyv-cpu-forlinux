@@ -11,22 +11,14 @@ IF → D1 → D2 → EX → MEM → WB
 ECALL/EBREAK/MRET、机器模式精确同步异常，以及 BTB + 非推测 GShare。
 Core 使用独立的指令和数据 ready/valid 接口，不直接实例化 FPGA BRAM。
 
-## 当前状态
+## 功能与方向
 
-- RV32IM/RV64IM 六级流水、GPR/CSR 前递、load-use 检测和存储器反压。
-- 单条在途多周期 MDU：统一握手与取消；三种乘法、两种除法可选，默认 DSP 推断乘法 + 移位除法（most easy）。
-- JAL 在 D1 解析；条件分支与 JALR 在 EX 解析。
-- CSR 在 EX 完成读改写与 WARL，WB 执行架构提交。
-- Verilator 纯 SystemVerilog 测试，不使用 Cocotb。
-- RV32/RV64 各 38 项单元测试，包含六种 MDU 组合与小位宽穷举；13 项整核定向流程中各 12 PASS、1 非适用位宽 SKIP。
-- 适用的 riscv-tests：RV32 `58/58`，RV64 `78/78`，包括全部 8/13 项 UM；
-  Zifencei 与未对齐直接完成用例明确 SKIP。
-- CoreMark 1.0 performance/validation CRC 均通过；当前默认 MDU 配置的 RV32 为
-  `2.821267 CoreMark/MHz`，RV64 为 `2.490061 CoreMark/MHz`。
+现有 RV32IM/RV64IM Core 支持 GPR/CSR 前递、load-use 检测、访存反压和可选乘除
+后端；M 运算结果在 EX/MEM 边界与指令元数据汇合。Verilator 测试覆盖单元、整核、
+riscv-tests 和 CoreMark。当前没有完成 FPGA 上板或真实 Cache/TCM。
 
-当前完成的 M 扩展。下一步预计接入zynq7020与盘古676，同时添加uart等必要的rtl设计。
-未来目标：异步中断、总线与总线挂载、Cache、C扩展、S-mode 与 MMU。
-很可能干的事情：根据上板时序评估加深流水，修改重复信号。
+后续先面向盘古 676-200K Pro 设计可综合存储器、TCM/Cache、DMA 与系统互连，
+再适配 Zynq-7020；平台无关 Core 保持独立。具体方案见文档。
 
 ## 快速验证
 
@@ -53,7 +45,7 @@ RISC-V 工具链默认位于 `/opt/riscv/bin`。`make test` 包含 lint、单元
 
 ## 目录入口
 
-- `vsrc/core/`：与平台无关的可综合 Core。
+- `vsrc/core/`：与平台无关的可综合 Core；`vsrc/pkg/` 保存共享类型和配置。
 - `vsrc/sim_cpu/`：不可综合的仿真存储器和通用仿真顶层。
 - `vsrc/cpu/`：FPGA wrapper 框架，后续适配两个平台。
 - `tb/`：单元、整核和上游 riscv-tests 适配测试。
@@ -65,4 +57,5 @@ RISC-V 工具链默认位于 `/opt/riscv/bin`。`make test` 包含 lint、单元
 - [项目目录说明](docs/PROJECT_STRUCTURE.md)
 - [硬件目标与阶段规划](docs/HARDWARE_ROADMAP.md)
 - [仿真与 FPGA 工作](docs/SIMULATION_AND_FPGA.md)
+- [Cache、TCM、DMA 与总线设计草案](thinking.md)
 - [双 FPGA 平台适配](docs/PLATFORM_ADAPTATION.md)

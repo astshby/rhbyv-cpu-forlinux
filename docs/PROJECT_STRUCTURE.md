@@ -58,8 +58,8 @@ rhbyv-cpu-forlinux/
 
 ## `tb/`
 
-- `unit/`：当前 38 项，包含模块测试、六种 MDU 配置、8 位算法穷举与 SRT 组件验证。
-- `core/`：13 项短程序流程，覆盖基础/M 指令、访存等待、预测、CSR、Trap 和序列化取消。
+- `unit/`：当前 40 项，包含 MEM 结果拼包、六种 MDU 配置、8 位算法穷举与 SRT 组件验证。
+- `core/`：15 项短程序流程，每种 XLEN 为 14 PASS、1 非适用位宽 SKIP；覆盖基础/M 指令、访存等待、MDU 前递与寄存边界、预测、CSR、Trap 和序列化取消。
 - `benchmark/`：运行 ELF 镜像的长程序 harness，被动镜像字符 Store 并监视 `tohost`。
 - `common/rv_asm_pkg.sv`：为整核定向测试生成具名 32 位指令编码。
 - `common/muldiv_checker.sv`：乘法、除法和统一 MDU 共用的独立算术/协议参考检查器。
