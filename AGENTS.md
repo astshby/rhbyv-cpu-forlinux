@@ -56,11 +56,15 @@ local `docs/COMMIT.md`.
 ## Documentation Synchronization
 
 Update maintained architecture or workflow documents only when the user requests
-it. Treat `README.md` as maintainer-authored content: read it for context, do not
-rewrite it automatically, and never add change-record or learning-note content
-to it. This repository must not contain `docs/COMMIT.md` or `docs/understand/`;
+it. `README.md` may be updated on a purpose-specific branch when project facts
+change; keep it a concise project overview without current-stage diaries,
+change records, or explanatory notes. This repository must not contain
+`docs/COMMIT.md` or `docs/understand/`;
 their canonical home is the sibling `hgb-aisystem_riscv` repository. Maintain
 only this root `AGENTS.md`.
+When explicitly requested, a forward-looking hardware design draft may live in
+the rhbyv root (for example `thinking.md`); mirror it into hgb's
+`docs/understand/` without putting its content into this README.
 
 ## Branches and Pull Requests
 
@@ -76,4 +80,5 @@ under `tb/riscv_tests/` or `scripts/`.
 Before a major rhbyv commit, create a matching purpose-specific branch in
 `../hgb-aisystem_riscv`, copy the applicable hardware source, tests, scripts,
 benchmark port, and hardware documents there, and submit the hgb branch as a PR.
-Do not overwrite hgb's repository-specific README, license, or software roadmap.
+Update hgb's repository-specific README independently alongside hardware changes;
+do not overwrite it with rhbyv's README or replace its license or software roadmap.
