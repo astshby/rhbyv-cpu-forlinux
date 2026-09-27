@@ -21,6 +21,8 @@ riscv-tests 和 CoreMark。可移植 SoC 已提供 ROM、I/D-TCM、2 路 UART、
 后续先面向盘古 676-200K Pro 接入外存、DMA、Cache 与板级 IP，
 再适配 Zynq-7020；平台无关 Core 保持独立。具体方案见文档。
 
+独立 AXI4 单笔桥已提供，尚未接入 DDR；接口与限制见 [外存接入边界](docs/SOC_EXTERNAL_MEMORY.md)。
+
 ## 快速验证
 
 从仓库根目录运行：
