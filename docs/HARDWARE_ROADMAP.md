@@ -30,10 +30,11 @@ ready-valid 存储器协议。
 - JAL 只训练 BTB；JALR 训练 BTB；条件分支训练 BTB、PHT 和 GHR。
 
 当前 RTL 支持 RV32IM/RV64IM、六种 Zicsr、ECALL、EBREAK、MRET、机器模式同步异常、
-`mstatus/misa/mtvec/mscratch/mepc/mcause/mtval/mcycle/minstret`；RV32 还可通过
+`mstatus/misa/mie/mip/mtvec/mscratch/mepc/mcause/mtval/mcycle/minstret`；RV32 还可通过
 `mcycleh/minstreth` 配合高低高重读获取完整 64 位计数。FENCE/FENCE.I 已实现
 序列化、旧访存排空与顺序 PC 恢复；FENCE.I 另清除旧预测并丢弃旧取指响应。
-统一地址存储的定向测试已覆盖自修改代码，完整 SoC/TCM 接入留待下一步。
+SoC 已集成 ROM、I/D-TCM、UART/Timer/GPIO 与机器中断，上游 `fence_i` 已在统一地址路径通过。
+中断排空流水后保存实际后继 PC；CSR/外设和限制见 [SoC 外设接口](SOC_PERIPHERALS.md)。
 
 ## SystemVerilog 规则
 
@@ -67,7 +68,8 @@ ready-valid 存储器协议。
 | `ex_exception_check` | 继承异常、CSR 权限、访存与控制目标对齐检查 |
 | `mem_stage` | 内部汇合 M 结果、请求侧访存握手和 MEM 前递，不等待 Load 返回 |
 | `wb_stage` | 响应侧握手、写回数据和真实 commit 许可 |
-| `trap_controller` | 由最老 commit 产生 Trap/MRET 状态与重定向 |
+| `trap_controller` | 由最老 commit 或排空中断产生 Trap/MRET/FENCE 状态与重定向 |
+| `interrupt_entry` | 排空判定和退休后继 PC 记录，不打断已接受的访存 |
 | `hazard_unit` | 判断数据尚不可用的 load-use 依赖 |
 | `pipeline_ctrl` | 按指令年龄仲裁 HOLD/CLEAR/ADVANCE 和 redirect |
 | `serialize_controller` | 异常/MRET 排空时停止取指，并区分 WB 完成与较老控制流取消 |
@@ -158,8 +160,9 @@ riscv-tests 仍为 58/78 PASS，各跳过 `fence_i` 与 `ma_data`。固定同一
 
 - S0：读写完成响应、访存大小、access fault、FENCE/FENCE.I 与物理地址契约；
   见 [SoC 访存契约](SOC_BUS_CONTRACT.md)。
-- S1：Boot ROM、I/D-TCM、系统路由、统一存储器仿真与 CoreMark。
-- S2：两 UART、机器/通用 Timer 各一、三 GPIO、机器中断与外设验证。
+- S1：Boot ROM、I/D-TCM、系统路由、统一存储器仿真与 CoreMark，已集成验证。
+- S2：两 UART、机器/通用 Timer 各一、三 GPIO、机器中断与外设验证，已实现。
+  验收入口：`soc-test`、`soc-software`、`soc-riscv-tests`、`soc-coremark`。
 - S3：DDR 桥与 DMA；S4：盘古 IP/引脚与板级闭环。各步骤独立交接。
 
 ## 阶段 C：C 扩展
