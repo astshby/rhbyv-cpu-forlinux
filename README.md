@@ -17,9 +17,11 @@ Core 使用独立的指令和数据 ready/valid 接口，不直接实例化 FPGA
 后端；M 运算结果在 EX/MEM 边界与指令元数据汇合。Verilator 测试覆盖单元、整核、
 riscv-tests 和 CoreMark。可移植 SoC 已提供 ROM、I/D-TCM、2 路 UART、2 个定时器、
 3 组 GPIO、中断汇聚与单通道 DMA；已接入可选外存端口和 AXI4 仿真 RAM。
-尚无 Cache、真实 DDR3 控制器或已验证的 FPGA 板级集成。
+DDR 支持两路阻塞式 I$/D$：I$ 使用 FENCE.I 失效，D$ 写穿透、写缺失不分配，
+并提供 DMA 交接所需的 MMIO 全失效命令；TCM/MMIO 旁路。
+尚无真实 DDR3 控制器或已验证的 FPGA 板级集成。
 
-后续先在独立分支实现 Cache，再面向盘古 676-200K Pro 接入板级 DDR3 IP，
+后续完善 DDR 性能验证，再面向盘古 676-200K Pro 接入板级 DDR3 IP，
 再适配 Zynq-7020；平台无关 Core 保持独立。具体方案见文档。
 
 单拍 AXI4 桥与可变延迟 RAM 已用于外存仿真，非板级 DDR3；接口与限制见 [外存接入边界](docs/SOC_EXTERNAL_MEMORY.md)。
@@ -43,6 +45,8 @@ make soc-test soc-software soc-dma-software soc-riscv-tests XLEN=32
 make soc-test soc-software soc-dma-software soc-riscv-tests XLEN=64
 make soc-coremark XLEN=32
 make soc-coremark XLEN=64
+make cache-test XLEN=32
+make cache-test XLEN=64
 ```
 
 `MUL_IMPL=0/1/2` 选择 DSP 、Booth-Wallace、移位乘法；`DIV_IMPL=0/1` 选择
@@ -54,7 +58,7 @@ RISC-V 工具链默认位于 `/opt/riscv/bin`。`make test` 包含 lint、单元
 ## 目录入口
 
 - `vsrc/core/`：与平台无关的可综合 Core；`vsrc/pkg/` 保存共享类型和配置。
-- `vsrc/soc/`：可移植 ROM、TCM、互连、DMA、MMIO 和中断汇聚。
+- `vsrc/soc/`：可移植 I$/D$、ROM、TCM、互连、DMA、MMIO 和中断汇聚。
 - `vsrc/sim_cpu/`：不可综合的仿真存储器和通用仿真顶层。
 - `vsrc/cpu/`：FPGA wrapper 框架，后续适配两个平台。
 - `tb/`：单元、整核和上游 riscv-tests 适配测试。

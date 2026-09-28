@@ -169,9 +169,11 @@ riscv-tests 仍为 58/78 PASS，各跳过 `fence_i` 与 `ma_data`。固定同一
   模块级、CPU 软件与原有回归验证。外存为仿真功能模型，不是板级 DDR3 控制器。
   `soc-dma-software` 覆盖 TCM/外存双向搬运、ID 7 中断、错误及外存取指。
   接口和后续板级边界见 [外存与 DMA](SOC_EXTERNAL_MEMORY.md)。
-- S4：建立独立 `s4/cache` 分支后再做两路组相联 I$/D$ 与 DMA 一致性契约；
+- S4：`s4/cache` 已实现两路阻塞式 I$/D$、FENCE.I 与错误回退，入口 `make cache-test`；
+  D$ 为 WT/NWA，提供 MMIO 全失效与 DMA 完成/部分失败的软件交接验证；
+  独立 DDR CoreMark、I/D/DMA 压力测试及性能优化仍待后续；
   盘古和 Zynq 的实际 DDR、时钟与上板时序验证继续后推。
-- S4：盘古 IP/引脚与板级闭环。各步骤独立交接。
+- 后续板级验证：盘古 IP/引脚与板级闭环，再适配 Zynq。各步骤独立交接。
 
 ## 阶段 C：C 扩展
 
