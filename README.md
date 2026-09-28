@@ -16,12 +16,13 @@ Core 使用独立的指令和数据 ready/valid 接口，不直接实例化 FPGA
 现有 RV32IM/RV64IM Core 支持 GPR/CSR 前递、load-use 检测、访存反压和可选乘除
 后端；M 运算结果在 EX/MEM 边界与指令元数据汇合。Verilator 测试覆盖单元、整核、
 riscv-tests 和 CoreMark。可移植 SoC 已提供 ROM、I/D-TCM、2 路 UART、2 个定时器、
-3 组 GPIO 与中断汇聚；尚无 Cache、DMA、DDR 控制器或已验证的 FPGA 板级集成。
+3 组 GPIO、中断汇聚与单通道 DMA；已接入可选外存端口和 AXI4 仿真 RAM。
+尚无 Cache、真实 DDR3 控制器或已验证的 FPGA 板级集成。
 
-后续先面向盘古 676-200K Pro 接入外存、DMA、Cache 与板级 IP，
+后续先在独立分支实现 Cache，再面向盘古 676-200K Pro 接入板级 DDR3 IP，
 再适配 Zynq-7020；平台无关 Core 保持独立。具体方案见文档。
 
-独立 AXI4 单笔桥已提供，尚未接入 DDR；接口与限制见 [外存接入边界](docs/SOC_EXTERNAL_MEMORY.md)。
+单拍 AXI4 桥与可变延迟 RAM 已用于外存仿真，非板级 DDR3；接口与限制见 [外存接入边界](docs/SOC_EXTERNAL_MEMORY.md)。
 
 ## 快速验证
 
@@ -38,8 +39,8 @@ make coremark XLEN=32
 make coremark XLEN=64
 make mdu-backends XLEN=32
 make mdu-backends XLEN=64
-make soc-test soc-software soc-riscv-tests XLEN=32
-make soc-test soc-software soc-riscv-tests XLEN=64
+make soc-test soc-software soc-dma-software soc-riscv-tests XLEN=32
+make soc-test soc-software soc-dma-software soc-riscv-tests XLEN=64
 make soc-coremark XLEN=32
 make soc-coremark XLEN=64
 ```
@@ -53,7 +54,7 @@ RISC-V 工具链默认位于 `/opt/riscv/bin`。`make test` 包含 lint、单元
 ## 目录入口
 
 - `vsrc/core/`：与平台无关的可综合 Core；`vsrc/pkg/` 保存共享类型和配置。
-- `vsrc/soc/`：可移植 ROM、TCM、互连、MMIO 和中断汇聚。
+- `vsrc/soc/`：可移植 ROM、TCM、互连、DMA、MMIO 和中断汇聚。
 - `vsrc/sim_cpu/`：不可综合的仿真存储器和通用仿真顶层。
 - `vsrc/cpu/`：FPGA wrapper 框架，后续适配两个平台。
 - `tb/`：单元、整核和上游 riscv-tests 适配测试。

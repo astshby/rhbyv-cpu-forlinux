@@ -156,15 +156,19 @@ riscv-tests 仍为 58/78 PASS，各跳过 `fence_i` 与 `ma_data`。固定同一
 默认 m0d0、BTB 64 的 CoreMark/MHz 为 RV32 `2.897145`、RV64 `2.579512`。
 真实 FPGA 映射与时序仍待 A6。
 
-## 无 Cache SoC：S0 → S2
+## 无 Cache SoC：S0 → S3
 
 - S0：读写完成响应、访存大小、access fault、FENCE/FENCE.I 与物理地址契约；
   见 [SoC 访存契约](SOC_BUS_CONTRACT.md)。
 - S1：Boot ROM、I/D-TCM、系统路由、统一存储器仿真与 CoreMark，已集成验证。
 - S2：两 UART、机器/通用 Timer 各一、三 GPIO、机器中断与外设验证，已实现。
   验收入口：`soc-test`、`soc-software`、`soc-riscv-tests`、`soc-coremark`。
-- S3：DDR 桥与 DMA。当前独立 AXI4 单笔桥已开始实现/验证；顶层外存、DMA 和三主仲裁尚未接入。
-  接口边界和后续顺序见 [外存与 DMA](SOC_EXTERNAL_MEMORY.md)。
+- S3：三主端口仲裁、单通道 DMA、可选外存窗口和 AXI4 单拍桥已完成双位宽
+  模块级、CPU 软件与原有回归验证。外存为仿真功能模型，不是板级 DDR3 控制器。
+  `soc-dma-software` 覆盖 TCM/外存双向搬运、ID 7 中断、错误及外存取指。
+  接口和后续板级边界见 [外存与 DMA](SOC_EXTERNAL_MEMORY.md)。
+- S4：建立独立 `s4/cache` 分支后再做两路组相联 I$/D$ 与 DMA 一致性契约；
+  盘古和 Zynq 的实际 DDR、时钟与上板时序验证继续后推。
 - S4：盘古 IP/引脚与板级闭环。各步骤独立交接。
 
 ## 阶段 C：C 扩展
