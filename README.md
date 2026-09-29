@@ -67,6 +67,8 @@ RISC-V 工具链默认位于 `/opt/riscv/bin`。`make test` 包含 lint、单元
 
 ## 文档
 
+- [文档入口与分支适用范围](docs/README.md)
+- [SoC 访存接口契约](docs/SOC_BUS_CONTRACT.md)
 - [SoC 与外设接口](docs/SOC_PERIPHERALS.md)
 - [项目目录说明](docs/PROJECT_STRUCTURE.md)
 - [硬件目标与阶段规划](docs/HARDWARE_ROADMAP.md)
